@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentLoop — research agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#11151c;
+    --ink-2:#191f29;
+    --paper:#f3ead7;
+    --paper-2:#ebe0c8;
+    --amber:#e8a23d;
+    --moss:#7a9b7e;
+    --rust:#c4583a;
+    --muted:#8a93a3;
+    --line:#2a3340;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:#dfe3ea;
+    font-family:'IBM Plex Sans',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:36px 24px 64px;}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+  .word{font-family:'Source Serif 4',serif;font-weight:700;font-size:30px;letter-spacing:0.2px;color:#f3ead7;}
+  .word span{color:var(--amber);}
+  .tagline{color:var(--muted);font-size:14px;margin:0 0 28px;}
+  .history-toggle{
+    background:none;border:1px solid var(--line);color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;cursor:pointer;
+  }
+  .history-toggle:hover{border-color:var(--amber);color:var(--amber);}
+
+  /* pipeline stepper — the signature element */
+  .stepper{
+    display:flex;align-items:center;gap:0;margin:8px 0 28px;
+    overflow-x:auto;padding-bottom:4px;
+  }
+  .step{
+    display:flex;align-items:center;gap:8px;
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.06em;
+    color:var(--muted);white-space:nowrap;padding:8px 14px;border:1px solid var(--line);
+    border-radius:999px;background:var(--ink-2);transition:all .25s ease;
+  }
+  .step .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:all .25s ease;}
+  .step.active{color:var(--ink);background:var(--amber);border-color:var(--amber);}
+  .step.active .dot{background:var(--ink);box-shadow:0 0 0 4px rgba(232,162,61,0.25);}
+  .step.done{color:var(--moss);border-color:var(--moss);}
+  .step.done .dot{background:var(--moss);}
+  .step-connector{width:18px;height:1px;background:var(--line);flex:0 0 18px;}
+
+  .runrow{display:flex;gap:10px;margin-bottom:30px;flex-wrap:wrap;}
+  input[type=text]{
+    flex:1;min-width:240px;background:var(--ink-2);border:1px solid var(--line);color:#eef0f4;
+    padding:13px 16px;border-radius:var(--radius);font-size:15px;font-family:'IBM Plex Sans',sans-serif;
+  }
+  input[type=text]:focus{outline:none;border-color:var(--amber);}
+  button.run{
+    background:var(--amber);color:#1a1206;border:none;font-weight:600;font-size:14px;
+    padding:13px 22px;border-radius:var(--radius);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;
+  }
+  button.run:disabled{opacity:0.5;cursor:default;}
+  button.run:not(:disabled):hover{background:#f0b15c;}
+
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+
+  .panel{border-radius:14px;overflow:hidden;border:1px solid var(--line);}
+  .panel h2{
+    margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--muted);padding:13px 18px;border-bottom:1px solid var(--line);
+  }
+
+  .trace{background:var(--ink-2);min-height:420px;max-height:560px;overflow-y:auto;}
+  .trace-body{padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;}
+  .trace-line{margin-bottom:9px;color:#c7cdd8;}
+  .trace-line .node{color:var(--amber);}
+  .trace-line.sub{color:var(--muted);padding-left:14px;}
+  .trace-line.error{color:var(--rust);}
+  .trace-empty{color:var(--muted);font-style:italic;}
+
+  .report{background:var(--paper);color:#2a2218;min-height:420px;}
+  .report-body{padding:26px 30px;font-family:'Source Serif 4',serif;font-size:16px;line-height:1.7;}
+  .report-body h1{font-size:26px;margin:0 0 14px;}
+  .report-body h2{font-size:19px;margin:26px 0 10px;border-top:1px solid var(--paper-2);padding-top:18px;}
+  .report-body p{margin:0 0 12px;}
+  .report-body ul{margin:0 0 12px;padding-left:22px;}
+  .report-body a{color:#7a4a23;text-decoration:underline;}
+  .report-empty{font-family:'IBM Plex Sans',sans-serif;color:#9c8f74;font-size:14px;padding:4px 0;}
+  .recalled{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7a6a45;background:var(--paper-2);
+    padding:10px 14px;border-radius:8px;margin-bottom:18px;
+  }
+
+  .history{margin-top:10px;display:none;flex-wrap:wrap;gap:8px;}
+  .history.open{display:flex;}
+  .pill{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;background:var(--ink-2);
+  }
+  .pill:hover{border-color:var(--amber);color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="word">Agent<span>Loop</span></div>
+    <button class="history-toggle" id="historyToggle" type="button">past sessions ▾</button>
+  </header>
+  <p class="tagline">A tool-using research agent. It recalls prior runs, plans sub-questions, searches the live web, checks its own gaps, and writes a sourced report.</p>
+
+  <div class="history" id="history"></div>
+
+  <div class="stepper" id="stepper"></div>
+
+  <div class="runrow">
+    <input type="text" id="topic" placeholder="Ask it to research something — e.g. &quot;impact of the EU AI Act on startups&quot;" />
+    <button class="run" id="runBtn" type="button">Run →</button>
+  </div>
+
+  <div class="grid">
+    <div class="panel trace">
+      <h2>Live trace</h2>
+      <div class="trace-body" id="traceBody">
+        <div class="trace-empty">Nothing running yet. Enter a topic and hit run.</div>
+      </div>
+    </div>
+    <div class="panel report">
+      <h2>Report</h2>
+      <div class="report-body" id="reportBody">
+        <div class="report-empty">The final report will appear here once the agent finishes.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STEPS = [
+  {key:'recall', label:'recall'},
+  {key:'planner', label:'plan'},
+  {key:'research', label:'research'},
+  {key:'reflect', label:'reflect'},
+  {key:'synthesize', label:'synthesize'},
+  {key:'persist', label:'save'},
+];
+
+const stepperEl = document.getElementById('stepper');
+function renderStepper(activeKey, doneKeys){
+  stepperEl.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'step' + (s.key === activeKey ? ' active' : '') + (doneKeys.has(s.key) ? ' done' : '');
+    el.innerHTML = '<span class="dot"></span>' + s.label;
+    stepperEl.appendChild(el);
+    if (i < STEPS.length - 1){
+      const c = document.createElement('div');
+      c.className = 'step-connector';
+      stepperEl.appendChild(c);
+    }
+  });
+}
+renderStepper(null, new Set());
+
+const traceBody = document.getElementById('traceBody');
+const reportBody = document.getElementById('reportBody');
+const runBtn = document.getElementById('runBtn');
+const topicInput = document.getElementById('topic');
+
+function clearTrace(){ traceBody.innerHTML = ''; }
+function addTraceLine(node, message, isError){
+  const row = document.createElement('div');
+  const isSub = message.trim().startsWith('->');
+  row.className = 'trace-line' + (isSub ? ' sub' : '') + (isError ? ' error' : '');
+  if (isSub){
+    row.textContent = message;
+  } else {
+    row.innerHTML = '<span class="node">' + node + ':</span> ' + message;
+  }
+  traceBody.appendChild(row);
+  traceBody.scrollTop = traceBody.scrollHeight;
+}
+
+// Minimal markdown -> HTML, just enough for the agent's report style
+// (headings, paragraphs, bullet lists, links, bold).
+function renderMarkdown(md){
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  let html = '';
+  let inList = false;
+  const inline = (t) => t
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[^"'>])(https?:\/\/[^\s)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+
+  for (const raw of lines){
+    const line = raw.trim();
+    if (!line){ if (inList){ html += '</ul>'; inList = false; } continue; }
+    if (line.startsWith('## ')){ if (inList){ html += '</ul>'; inList = false; } html += '<h2>' + inline(line.slice(3)) + '</h2>'; continue; }
+    if (line.startsWith('# ')){ if (inList){ html += '</ul>'; inList = false; } html += '<h1>' + inline(line.slice(2)) + '</h1>'; continue; }
+    if (line.startsWith('- ') || line.startsWith('* ')){
+      if (!inList){ html += '<ul>'; inList = true; }
+      html += '<li>' + inline(line.slice(2)) + '</li>';
+      continue;
+    }
+    if (inList){ html += '</ul>'; inList = false; }
+    html += '<p>' + inline(line) + '</p>';
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function showReport(reportMd, recalledContext){
+  let html = '';
+  if (recalledContext){
+    html += '<div class="recalled">memory: ' + recalledContext.replace(/</g,'&lt;').slice(0,180) + '…</div>';
+  }
+  html += renderMarkdown(reportMd || '*(empty report)*');
+  reportBody.innerHTML = html;
+}
+
+let es = null;
+
+function run(){
+  const topic = topicInput.value.trim();
+  if (!topic) { topicInput.focus(); return; }
+  if (es) { es.close(); }
+
+  clearTrace();
+  reportBody.innerHTML = '<div class="report-empty">Working…</div>';
+  runBtn.disabled = true;
+  runBtn.textContent = 'Running…';
+  const doneKeys = new Set();
+  renderStepper(STEPS[0].key, doneKeys);
+
+  es = new EventSource('/api/research/stream?topic=' + encodeURIComponent(topic));
+
+  es.onmessage = (evt) => {
+    const data = JSON.parse(evt.data);
+    if (data.type === 'trace'){
+      addTraceLine(data.node, data.message, false);
+      const idx = STEPS.findIndex(s => s.key === data.node);
+      if (idx >= 0){
+        for (let i = 0; i < idx; i++) doneKeys.add(STEPS[i].key);
+        renderStepper(data.node, doneKeys);
+      }
+    } else if (data.type === 'done'){
+      STEPS.forEach(s => doneKeys.add(s.key));
+      renderStepper(null, doneKeys);
+      showReport(data.report, null);
+      runBtn.disabled = false;
+      runBtn.textContent = 'Run →';
+      loadHistory();
+      es.close();
+    } else if (data.type === 'error'){
+      addTraceLine('error', data.message, true);
+      runBtn.disabled = false;
+      runBtn.textContent = 'Run →';
+      es.close();
+    }
+  };
+  es.onerror = () => {
+    addTraceLine('connection', 'Stream interrupted.', true);
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run →';
+    es.close();
+  };
+}
+
+runBtn.addEventListener('click', run);
+topicInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+
+// --- history ---
+const historyEl = document.getElementById('history');
+const historyToggle = document.getElementById('historyToggle');
+historyToggle.addEventListener('click', () => historyEl.classList.toggle('open'));
+
+async function loadHistory(){
+  try{
+    const res = await fetch('/api/history');
+    const sessions = await res.json();
+    historyEl.innerHTML = '';
+    if (!sessions.length){
+      historyEl.innerHTML = '<span class="report-empty">No past sessions yet.</span>';
+      return;
+    }
+    sessions.forEach(s => {
+      const pill = document.createElement('div');
+      pill.className = 'pill';
+      pill.textContent = s.topic;
+      pill.addEventListener('click', async () => {
+        const r = await fetch('/api/history/' + s.id);
+        const detail = await r.json();
+        clearTrace();
+        addTraceLine('history', 'Loaded saved session: ' + detail.topic);
+        showReport(detail.report, null);
+        renderStepper(null, new Set(STEPS.map(x => x.key)));
+      });
+      historyEl.appendChild(pill);
+    });
+  } catch(e){ /* backend not reachable yet — ignore on first paint */ }
+}
+loadHistory();
+</script>
+</body>
+</html>

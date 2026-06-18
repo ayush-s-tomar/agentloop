@@ -1,0 +1,32 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Lets you deploy with "New > Blueprint" in the Render dashboard instead of
+# clicking through service settings manually.
+#
+# NOTE on persistence: Render's free instance type has an ephemeral disk —
+# the SQLite memory file (data/agentloop.db) will reset on every redeploy
+# or spin-down. That's fine for a demo/portfolio project. For real
+# persistence, either attach a paid persistent disk (uncomment below) or
+# swap memory/store.py for a hosted Postgres instance.
+
+services:
+  - type: web
+    name: agentloop
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: MAX_SUBQUESTIONS
+        value: "4"
+      - key: MAX_REFLECT_ITERATIONS
+        value: "2"
+    # disk:
+    #   name: agentloop-data
+    #   mountPath: /app/data
+    #   sizeGB: 1
