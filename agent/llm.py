@@ -1,51 +1,51 @@
 """
-Thin wrapper around the Groq chat completions API.
+LLM wrapper supporting both Groq and Google Gemini.
 
-Two entry points:
-  - complete()       plain prompt -> text. Used for planning, reflecting,
-                      and writing the final report — steps where the model
-                      doesn't need any tool.
-  - run_with_tools()  the actual function-calling loop. The model is given
-                      tool schemas and can choose to call them; we execute
-                      the call, feed the result back, and let the model
-                      keep going until it answers in plain text (or we hit
-                      a round cap, since an agent that can call its own
-                      tools needs a hard stop to avoid looping forever).
+Set LLM_PROVIDER=gemini in your .env to use Gemini (free, generous limits).
+Set LLM_PROVIDER=groq (default) to use Groq.
 
-Kept as raw Groq SDK calls (rather than a framework wrapper) so the
-tool-calling mechanics are fully visible — this is the part of the code
-worth walking through in an interview.
+Gemini free tier: 1500 requests/day, 1M tokens/min — effectively unlimited for demos.
+Groq free tier: 100k tokens/day — can get exhausted during heavy testing.
 """
 
 import json
 import os
 from typing import Callable, Dict, List, Optional, Tuple
 
-from groq import Groq
-
-_client: Optional[Groq] = None
-
-# Best Groq model for tool-calling. Override via GROQ_MODEL in .env if needed.
-_TOOL_MODEL = "llama-3.3-70b-versatile"
-# Lightweight model for plain text steps (planning, reflection, synthesis).
-_TEXT_MODEL = "llama-3.3-70b-versatile"
+_PROVIDER = None
+_client = None
 
 
-def _get_client() -> Groq:
-    global _client
-    if _client is None:
-        api_key = os.environ.get("GROQ_API_KEY")
-        if not api_key:
-            raise RuntimeError("GROQ_API_KEY is not set. Add it to your .env file.")
-        _client = Groq(api_key=api_key)
+def _get_provider() -> str:
+    return os.environ.get("LLM_PROVIDER", "groq").lower()
+
+
+def _get_client():
+    global _client, _PROVIDER
+    provider = _get_provider()
+    if _client is None or provider != _PROVIDER:
+        _PROVIDER = provider
+        if provider == "gemini":
+            from openai import OpenAI
+            _client = OpenAI(
+                api_key=os.environ.get("GEMINI_API_KEY"),
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
+        else:
+            from groq import Groq
+            _client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
     return _client
 
 
 def _model(for_tools: bool = False) -> str:
-    env_override = os.environ.get("GROQ_MODEL")
-    if env_override:
-        return env_override
-    return _TOOL_MODEL if for_tools else _TEXT_MODEL
+    provider = _get_provider()
+    if provider == "gemini":
+        return os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    # Groq
+    env = os.environ.get("GROQ_MODEL")
+    if env:
+        return env
+    return "llama-3.3-70b-versatile"
 
 
 def complete(system: str, user: str, json_mode: bool = False) -> str:
@@ -54,7 +54,7 @@ def complete(system: str, user: str, json_mode: bool = False) -> str:
         kwargs["response_format"] = {"type": "json_object"}
 
     resp = _get_client().chat.completions.create(
-        model=_model(for_tools=False),
+        model=_model(),
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -72,16 +72,6 @@ def run_with_tools(
     tool_executors: Dict[str, Callable[[dict], object]],
     max_rounds: int = 3,
 ) -> Tuple[str, List[dict]]:
-    """
-    Returns (final_text, tool_call_log).
-    tool_call_log is a list of {"name": ..., "args": ..., "result_preview": ...}
-    purely for the trace shown to the user — it's how the demo proves the
-    model actually decided to call a tool rather than us faking it.
-
-    Includes a graceful fallback: if the model returns a 400 error on tool-
-    calling (e.g. model doesn't support it), we fall back to a direct web
-    search using the user question as the query, then synthesize the results.
-    """
     client = _get_client()
     messages = [
         {"role": "system", "content": system},
@@ -144,15 +134,13 @@ def run_with_tools(
                     }
                 )
 
-        # Hit the round cap — ask once more without tools
+        # Hit round cap — ask without tools
         messages.append({"role": "user", "content": "Please give your final answer now, in plain text, no more tool calls."})
         resp = client.chat.completions.create(model=_model(for_tools=True), messages=messages, temperature=0.2)
         return resp.choices[0].message.content or "", log
 
     except Exception as e:
         err_str = str(e)
-        # Graceful fallback: if tool-calling fails (e.g. 400 invalid_request_error),
-        # run the search directly ourselves then ask the model to synthesise the results.
         if "tool" in err_str.lower() or "400" in err_str or "function" in err_str.lower():
             fallback_log: List[dict] = []
             search_executor = tool_executors.get("web_search")
@@ -171,8 +159,7 @@ def run_with_tools(
                 )
                 synthesis_prompt = (
                     f"Using these search results, answer the question: {user}\n\n"
-                    f"Search results:\n{context}\n\n"
-                    "Answer in 3-6 sentences. Be concrete and cite the sources."
+                    f"Search results:\n{context}\n\nAnswer in 3-6 sentences. Be concrete and cite sources."
                 )
                 try:
                     answer = complete(system, synthesis_prompt)
@@ -180,7 +167,6 @@ def run_with_tools(
                 except Exception:
                     pass
 
-            # Last resort: answer from model's own knowledge
             try:
                 answer = complete(system, user)
                 return answer, []
