@@ -263,3 +263,19 @@ def build_graph():
 
 
 graph = build_graph()
+def run(topic: str):
+    """Generator that yields (node_name, snapshot) as each node finishes."""
+    import uuid
+    init: AgentState = {
+        "topic":         topic,
+        "run_id":        str(uuid.uuid4()),
+        "sub_questions": [],
+        "notes":         [],
+        "reflection":    "",
+        "loop_count":    0,
+        "report":        "",
+        "error":         None,
+    }
+    for event in graph.stream(init):
+        for node_name, snapshot in event.items():
+            yield node_name, snapshot
