@@ -1,176 +1,192 @@
 """
-LLM wrapper supporting both Groq and Google Gemini.
-
-Set LLM_PROVIDER=gemini in your .env to use Gemini (free, generous limits).
-Set LLM_PROVIDER=groq (default) to use Groq.
-
-Gemini free tier: 1500 requests/day, 1M tokens/min — effectively unlimited for demos.
-Groq free tier: 100k tokens/day — can get exhausted during heavy testing.
+LLM wrapper around Groq with:
+  - Model routing  : cheap fast model for tool-heavy research steps,
+                     larger model for planning / reflection / synthesis
+  - Retry / backoff: up to MAX_RETRIES attempts with exponential back-off
+                     that respects the Retry-After header from Groq
+  - Token budgets  : kept small to stay within free-tier TPM limits
 """
-
-import json
+from __future__ import annotations
 import os
-from typing import Callable, Dict, List, Optional, Tuple
+import time
+import logging
+from groq import Groq, RateLimitError, APIStatusError
 
-_PROVIDER = None
-_client = None
+log = logging.getLogger(__name__)
+
+# ---------- model aliases ----------
+FAST_MODEL   = "llama-3.1-8b-instant"   # high TPM limit on free tier — use for research loops
+REASON_MODEL = "llama3-70b-8192"         # smarter  — use for plan / reflect / synthesise
+
+MAX_RETRIES    = 6
+BASE_DELAY_SEC = 1.5   # minimum wait between retries
+MAX_DELAY_SEC  = 60
+
+_client: Groq | None = None
 
 
-def _get_provider() -> str:
-    return os.environ.get("LLM_PROVIDER", "groq").lower()
-
-
-def _get_client():
-    global _client, _PROVIDER
-    provider = _get_provider()
-    if _client is None or provider != _PROVIDER:
-        _PROVIDER = provider
-        if provider == "gemini":
-            from openai import OpenAI
-            _client = OpenAI(
-                api_key=os.environ.get("GEMINI_API_KEY"),
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            )
-        else:
-            from groq import Groq
-            _client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+def _get_client() -> Groq:
+    global _client
+    if _client is None:
+        _client = Groq(
+            api_key=os.environ["GROQ_API_KEY"],
+            max_retries=0,   # we handle retries ourselves to get proper back-off
+        )
     return _client
 
 
-def _model(for_tools: bool = False) -> str:
-    provider = _get_provider()
-    if provider == "gemini":
-        return os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-    # Groq
-    env = os.environ.get("GROQ_MODEL")
-    if env:
-        return env
-    return "llama-3.3-70b-versatile"
-
-
-def complete(system: str, user: str, json_mode: bool = False) -> str:
-    kwargs = {}
-    if json_mode:
-        kwargs["response_format"] = {"type": "json_object"}
-
-    resp = _get_client().chat.completions.create(
-        model=_model(),
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        temperature=0.3,
-        **kwargs,
-    )
-    return resp.choices[0].message.content or ""
-
-
-def run_with_tools(
-    system: str,
-    user: str,
-    tools: List[dict],
-    tool_executors: Dict[str, Callable[[dict], object]],
-    max_rounds: int = 3,
-) -> Tuple[str, List[dict]]:
+def _call(
+    messages: list[dict],
+    model: str,
+    max_tokens: int,
+    temperature: float = 0.3,
+) -> str:
     client = _get_client()
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
-    log: List[dict] = []
-
-    try:
-        for _ in range(max_rounds):
+    delay = BASE_DELAY_SEC
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
             resp = client.chat.completions.create(
-                model=_model(for_tools=True),
+                model=model,
                 messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                temperature=0.2,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
-            msg = resp.choices[0].message
+            return resp.choices[0].message.content.strip()
 
-            if not msg.tool_calls:
-                return msg.content or "", log
-
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": msg.content or "",
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                        }
-                        for tc in msg.tool_calls
-                    ],
-                }
-            )
-
-            for tc in msg.tool_calls:
-                name = tc.function.name
-                try:
-                    args = json.loads(tc.function.arguments or "{}")
-                except json.JSONDecodeError:
-                    args = {}
-
-                executor = tool_executors.get(name)
-                if executor is None:
-                    result = {"error": f"no such tool: {name}"}
-                else:
-                    try:
-                        result = executor(args)
-                    except Exception as exc:
-                        result = {"error": str(exc)}
-
-                log.append({"name": name, "args": args, "result_preview": str(result)[:300]})
-
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": json.dumps(result)[:4000],
-                    }
-                )
-
-        # Hit round cap — ask without tools
-        messages.append({"role": "user", "content": "Please give your final answer now, in plain text, no more tool calls."})
-        resp = client.chat.completions.create(model=_model(for_tools=True), messages=messages, temperature=0.2)
-        return resp.choices[0].message.content or "", log
-
-    except Exception as e:
-        err_str = str(e)
-        if "tool" in err_str.lower() or "400" in err_str or "function" in err_str.lower():
-            fallback_log: List[dict] = []
-            search_executor = tool_executors.get("web_search")
-            search_results = []
-            if search_executor:
-                try:
-                    search_results = search_executor({"query": user})
-                    fallback_log.append({"name": "web_search", "args": {"query": user}, "result_preview": str(search_results)[:300]})
-                except Exception:
-                    pass
-
-            if search_results:
-                context = "\n\n".join(
-                    f"Title: {r.get('title','')}\nURL: {r.get('url','')}\nContent: {r.get('content','')}"
-                    for r in search_results[:3]
-                )
-                synthesis_prompt = (
-                    f"Using these search results, answer the question: {user}\n\n"
-                    f"Search results:\n{context}\n\nAnswer in 3-6 sentences. Be concrete and cite sources."
-                )
-                try:
-                    answer = complete(system, synthesis_prompt)
-                    return answer, fallback_log
-                except Exception:
-                    pass
-
+        except RateLimitError as exc:
+            retry_after = None
             try:
-                answer = complete(system, user)
-                return answer, []
-            except Exception as final_e:
-                return f"Research step failed: {final_e}", []
+                retry_after = float(exc.response.headers.get("retry-after", 0))
+            except Exception:
+                pass
+            wait = max(retry_after or delay, delay)
+            log.warning(
+                "Rate-limited (attempt %d/%d). Waiting %.1fs …",
+                attempt, MAX_RETRIES, wait,
+            )
+            if attempt == MAX_RETRIES:
+                raise
+            time.sleep(wait)
+            delay = min(delay * 2, MAX_DELAY_SEC)
 
-        raise
+        except APIStatusError as exc:
+            if exc.status_code in (500, 502, 503, 504) and attempt < MAX_RETRIES:
+                log.warning("Groq %d error, retrying in %.1fs …", exc.status_code, delay)
+                time.sleep(delay)
+                delay = min(delay * 2, MAX_DELAY_SEC)
+            else:
+                raise
+
+    raise RuntimeError("Unreachable")
+
+
+# ---------- public helpers ----------
+
+def plan(topic: str, prior_notes: list[str]) -> list[str]:
+    """Return 3–4 sub-questions to research."""
+    prior = "\n".join(prior_notes) if prior_notes else "None"
+    content = _call(
+        messages=[
+            {"role": "system", "content": (
+                "You are a research planner. Given a topic and any prior notes, "
+                "return ONLY a JSON array of 3-4 focused sub-questions (strings). "
+                "No markdown, no preamble — raw JSON array only."
+            )},
+            {"role": "user", "content": f"Topic: {topic}\n\nPrior notes:\n{prior}"},
+        ],
+        model=REASON_MODEL,
+        max_tokens=300,
+    )
+    import json, re
+    # strip accidental markdown fences
+    clean = re.sub(r"```[a-z]*", "", content).strip().strip("`").strip()
+    return json.loads(clean)
+
+
+def should_search(question: str) -> bool:
+    """Decide whether a question requires a live web search."""
+    answer = _call(
+        messages=[
+            {"role": "system", "content": (
+                "Answer with exactly one word: YES if this question requires "
+                "current/factual web data, NO if it can be answered from general knowledge."
+            )},
+            {"role": "user", "content": question},
+        ],
+        model=FAST_MODEL,
+        max_tokens=5,
+    )
+    return answer.strip().upper().startswith("Y")
+
+
+def answer_from_context(question: str, search_results: str) -> str:
+    """Synthesise a concise answer from raw search snippets."""
+    return _call(
+        messages=[
+            {"role": "system", "content": (
+                "You are a research assistant. Using ONLY the provided search results, "
+                "write a concise 2-4 sentence answer. Cite no sources by URL — just facts."
+            )},
+            {"role": "user", "content": f"Question: {question}\n\nSearch results:\n{search_results}"},
+        ],
+        model=FAST_MODEL,
+        max_tokens=350,
+    )
+
+
+def answer_from_knowledge(question: str) -> str:
+    """Answer a question from parametric knowledge (no search)."""
+    return _call(
+        messages=[
+            {"role": "system", "content": "Answer the question concisely in 2-4 sentences."},
+            {"role": "user", "content": question},
+        ],
+        model=FAST_MODEL,
+        max_tokens=300,
+    )
+
+
+def reflect(topic: str, notes: list[str]) -> tuple[bool, str]:
+    """
+    Reflect on the notes collected so far.
+    Returns (needs_more_research: bool, reflection_text: str).
+    """
+    notes_text = "\n".join(f"- {n}" for n in notes)
+    raw = _call(
+        messages=[
+            {"role": "system", "content": (
+                "You are a critical research editor. "
+                "Given a topic and research notes, decide if the notes are sufficient for a report. "
+                "Reply with a JSON object: {\"sufficient\": true/false, \"gaps\": \"...\"}. "
+                "No markdown, raw JSON only."
+            )},
+            {"role": "user", "content": f"Topic: {topic}\n\nNotes:\n{notes_text}"},
+        ],
+        model=REASON_MODEL,
+        max_tokens=200,
+    )
+    import json, re
+    clean = re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
+    data = json.loads(clean)
+    sufficient = bool(data.get("sufficient", True))
+    gaps = data.get("gaps", "")
+    return (not sufficient), gaps
+
+
+def synthesise(topic: str, notes: list[str]) -> str:
+    """Write a structured Markdown research report from notes."""
+    notes_text = "\n".join(f"- {n}" for n in notes)
+    return _call(
+        messages=[
+            {"role": "system", "content": (
+                "You are a senior research analyst. "
+                "Write a well-structured research report in Markdown with: "
+                "## Overview, ## Key Findings (bullet points), ## Analysis, ## Conclusion. "
+                "Base it ONLY on the provided notes. Be clear and professional."
+            )},
+            {"role": "user", "content": f"Topic: {topic}\n\nResearch notes:\n{notes_text}"},
+        ],
+        model=REASON_MODEL,
+        max_tokens=900,
+        temperature=0.4,
+    )
