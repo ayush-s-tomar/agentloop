@@ -7,9 +7,8 @@ The agent's control flow, built as a LangGraph StateGraph.
       |
     planner         -> LLM breaks the topic into sub-questions
       |
-    research  <----+  -> for each sub-question: LLM decides to call the
-      |            |     web_search tool, reads the results, writes a
-      |            |     short cited answer (this is the actual tool-use)
+    research  <----+  -> for each sub-question: decides whether to search
+      |            |     the web, calls Tavily if needed, writes a short answer
       | (loop while plan has items)
       v
     reflect   ------+  -> LLM checks notes for gaps; either adds more
@@ -20,15 +19,11 @@ The agent's control flow, built as a LangGraph StateGraph.
     persist         -> save the run to SQLite (long-term memory)
       |
      END
-
-Every node returns only the slice of state it changed; LangGraph merges
-that into the running state dict, which is how "memory" of earlier steps
-(notes, recalled context, the trace) survives all the way to the final
-report without any extra wiring.
 """
 
 import json
 import os
+import uuid
 from typing import Dict, List
 
 from langgraph.graph import StateGraph, START, END
@@ -52,7 +47,10 @@ def recall_node(state: AgentState) -> dict:
     topic = state["topic"]
     past = store.find_similar_session(topic)
     if past:
-        context = f"On {past['created_at']:.0f}, a similar topic (\"{past['topic']}\") was researched. Prior summary:\n{past['report'][:1200]}"
+        context = (
+            f"On {past['created_at']:.0f}, a similar topic (\"{past['topic']}\") "
+            f"was researched. Prior summary:\n{past['report'][:1200]}"
+        )
         msg = f"Found related prior research: \"{past['topic']}\" — using it as background context."
     else:
         context = None
@@ -64,31 +62,22 @@ def recall_node(state: AgentState) -> dict:
     }
 
 
-PLANNER_SYSTEM = """You are the planning module of a research agent.
-Given a topic, break it into a small number of specific, non-overlapping
-sub-questions that together would produce a thorough research report.
-Respond ONLY with JSON: {"questions": ["...", "..."]}.
-"""
-
-
 def planner_node(state: AgentState) -> dict:
     max_q = int(os.environ.get("MAX_SUBQUESTIONS", "4"))
-    user_prompt = f"Topic: {state['topic']}\nProduce at most {max_q} sub-questions."
+    topic = state["topic"]
+
+    prior_notes: List[str] = []
     if state.get("recalled_context"):
-        user_prompt += f"\n\nBackground from prior research (avoid repeating what this already covers):\n{state['recalled_context']}"
+        prior_notes.append(state["recalled_context"])
 
-    questions: List[str] = []
     try:
-        raw = llm.complete(PLANNER_SYSTEM, user_prompt, json_mode=True)
-        parsed = json.loads(raw)
-        questions = [q.strip() for q in parsed.get("questions", []) if q.strip()][:max_q]
+        questions = llm.plan(topic, prior_notes)
+        questions = questions[:max_q]
     except Exception:
-        pass
-
-    if not questions:
-        # Deterministic fallback so a single bad LLM response can't kill the run.
-        questions = [f"What is {state['topic']} and why does it matter?",
-                     f"What are the most important recent developments in {state['topic']}?"]
+        questions = [
+            f"What is {topic} and why does it matter?",
+            f"What are the most important recent developments in {topic}?",
+        ]
 
     msg = "Planned " + str(len(questions)) + " sub-questions: " + "; ".join(questions)
     return {
@@ -100,13 +89,6 @@ def planner_node(state: AgentState) -> dict:
     }
 
 
-RESEARCH_SYSTEM = """You are the research module of an agent. You will be given
-one specific question. Use the web_search tool (you may call it more than once
-with different queries if needed) to find current, reliable information, then
-answer the question in 3-6 sentences. Be concrete and specific. Do not invent
-facts you did not find via search."""
-
-
 def research_node(state: AgentState) -> dict:
     plan = list(state.get("plan", []))
     if not plan:
@@ -115,48 +97,35 @@ def research_node(state: AgentState) -> dict:
     question = plan.pop(0)
     completed = list(state.get("completed_questions", [])) + [question]
 
-    captured_sources: List[str] = []
+    sources: List[str] = []
+    search_results_text = ""
 
-    def executor(args: dict) -> List[dict]:
-        query = args.get("query", question)
-        results = tools.web_search(query)
-        captured_sources.extend(r["url"] for r in results if r.get("url"))
-        return results
+    if llm.should_search(question):
+        results = tools.web_search(question)
+        sources = [r["url"] for r in results if r.get("url")][:5]
+        search_results_text = "\n\n".join(
+            f"Title: {r.get('title', '')}\n{r.get('content', r.get('snippet', ''))}"
+            for r in results
+        )
+        answer = llm.answer_from_context(question, search_results_text)
+        trace_msg = f"Researching (web search): {question}"
+    else:
+        answer = llm.answer_from_knowledge(question)
+        trace_msg = f"Researching (from knowledge): {question}"
 
-    answer, tool_log = llm.run_with_tools(
-        system=RESEARCH_SYSTEM,
-        user=question,
-        tools=[tools.WEB_SEARCH_TOOL_SCHEMA],
-        tool_executors={"web_search": executor},
-    )
-
-    sources = list(dict.fromkeys(captured_sources))[:5]
     note = {"question": question, "answer": answer.strip(), "sources": sources}
     notes = list(state.get("notes", [])) + [note]
-
-    trace = _trace(state, "research", f"Researching: {question}")
-    for call in tool_log:
-        trace = trace + [{"node": "research", "message": f"  -> called web_search(query=\"{call['args'].get('query', '')}\")"}]
 
     return {
         "plan": plan,
         "notes": notes,
         "completed_questions": completed,
-        "trace": trace,
+        "trace": _trace(state, "research", trace_msg),
     }
 
 
 def route_after_research(state: AgentState) -> str:
     return "research" if state.get("plan") else "reflect"
-
-
-REFLECT_SYSTEM = """You are the reflection module of a research agent.
-You will be given a topic and the notes gathered so far. Decide whether the
-notes are sufficient for a thorough report, or whether there are important
-gaps. Respond ONLY with JSON:
-{"sufficient": true|false, "additional_questions": ["..."]}
-additional_questions should contain at most 2 items, only used if sufficient
-is false."""
 
 
 def reflect_node(state: AgentState) -> dict:
@@ -169,24 +138,22 @@ def reflect_node(state: AgentState) -> dict:
             "trace": _trace(state, "reflect", "Reached reflection cap — moving to synthesis."),
         }
 
-    notes_summary = "\n".join(f"- Q: {n['question']}\n  A: {n['answer']}" for n in state.get("notes", []))
-    user_prompt = f"Topic: {state['topic']}\n\nNotes so far:\n{notes_summary}"
+    notes = state.get("notes", [])
+    notes_list = [f"Q: {n['question']} A: {n['answer']}" for n in notes]
 
-    sufficient, additional = True, []
     try:
-        raw = llm.complete(REFLECT_SYSTEM, user_prompt, json_mode=True)
-        parsed = json.loads(raw)
-        sufficient = bool(parsed.get("sufficient", True))
-        additional = [q.strip() for q in parsed.get("additional_questions", []) if q.strip()][:2]
+        needs_more, gaps = llm.reflect(state["topic"], notes_list)
     except Exception:
-        pass
+        needs_more, gaps = False, ""
 
-    if sufficient or not additional:
+    if not needs_more or not gaps:
         return {
             "decision": "done",
             "trace": _trace(state, "reflect", "Notes judged sufficient — moving to synthesis."),
         }
 
+    # gaps is a string describing what's missing; turn it into follow-up questions
+    additional = [gaps] if gaps else []
     msg = "Found gaps — adding follow-up questions: " + "; ".join(additional)
     return {
         "decision": "more_research",
@@ -200,25 +167,22 @@ def route_after_reflect(state: AgentState) -> str:
     return "research" if state.get("decision") == "more_research" else "synthesize"
 
 
-SYNTHESIZE_SYSTEM = """You are the writing module of a research agent.
-Combine the supplied notes into a well-structured markdown report on the
-topic: clear headings, a short intro, one section per theme (not necessarily
-one per sub-question), and a closing "Sources" section listing every unique
-URL referenced. Write in clear prose. Do not fabricate information beyond
-what the notes contain."""
-
-
 def synthesize_node(state: AgentState) -> dict:
     notes = state.get("notes", [])
-    notes_block = "\n\n".join(
+    notes_list = [
         f"Q: {n['question']}\nA: {n['answer']}\nSources: {', '.join(n['sources']) or 'none'}"
         for n in notes
-    )
-    user_prompt = f"Topic: {state['topic']}\n\nNotes:\n{notes_block}"
-    if state.get("recalled_context"):
-        user_prompt += f"\n\nRelevant background from earlier research:\n{state['recalled_context']}"
+    ]
 
-    report = llm.complete(SYNTHESIZE_SYSTEM, user_prompt)
+    if state.get("recalled_context"):
+        notes_list.append(f"Background context:\n{state['recalled_context']}")
+
+    try:
+        report = llm.synthesise(state["topic"], notes_list)
+    except Exception as e:
+        report = f"# {state['topic']}\n\n" + "\n\n".join(
+            f"**{n['question']}**\n{n['answer']}" for n in notes
+        )
 
     return {
         "final_report": report,
@@ -263,18 +227,22 @@ def build_graph():
 
 
 graph = build_graph()
+
+
 def run(topic: str):
     """Generator that yields (node_name, snapshot) as each node finishes."""
-    import uuid
     init: AgentState = {
-        "topic":         topic,
-        "run_id":        str(uuid.uuid4()),
-        "sub_questions": [],
-        "notes":         [],
-        "reflection":    "",
-        "loop_count":    0,
-        "report":        "",
-        "error":         None,
+        "session_id":           str(uuid.uuid4()),
+        "topic":                topic,
+        "recalled_context":     None,
+        "plan":                 [],
+        "completed_questions":  [],
+        "notes":                [],
+        "reflect_iterations":   0,
+        "max_reflect_iterations": 2,
+        "decision":             "",
+        "final_report":         "",
+        "trace":                [],
     }
     for event in graph.stream(init):
         for node_name, snapshot in event.items():
