@@ -22,6 +22,7 @@ The agent's control flow, built as a LangGraph StateGraph.
 """
 
 import json
+import logging
 import os
 import uuid
 from typing import Dict, List
@@ -31,6 +32,8 @@ from langgraph.graph import StateGraph, START, END
 from agent.state import AgentState
 from agent import llm, tools
 from memory import store
+
+log = logging.getLogger(__name__)
 
 
 def _trace(state: AgentState, node: str, message: str) -> List[dict]:
@@ -70,13 +73,18 @@ def planner_node(state: AgentState) -> dict:
     if state.get("recalled_context"):
         prior_notes.append(state["recalled_context"])
 
+    questions: List[str] = []
     try:
         questions = llm.plan(topic, prior_notes)
-        questions = questions[:max_q]
-    except Exception:
+        questions = [q.strip() for q in questions if q.strip()][:max_q]
+        if not questions:
+            raise ValueError("LLM returned empty question list")
+    except Exception as e:
+        log.error("Planner LLM failed (%s) — using fallback questions", e)
         questions = [
             f"What is {topic} and why does it matter?",
-            f"What are the most important recent developments in {topic}?",
+            f"What are the key challenges and opportunities in {topic}?",
+            f"What are the latest developments and future trends in {topic}?",
         ]
 
     msg = "Planned " + str(len(questions)) + " sub-questions: " + "; ".join(questions)
@@ -98,20 +106,24 @@ def research_node(state: AgentState) -> dict:
     completed = list(state.get("completed_questions", [])) + [question]
 
     sources: List[str] = []
-    search_results_text = ""
 
-    if llm.should_search(question):
-        results = tools.web_search(question)
-        sources = [r["url"] for r in results if r.get("url")][:5]
-        search_results_text = "\n\n".join(
-            f"Title: {r.get('title', '')}\n{r.get('content', r.get('snippet', ''))}"
-            for r in results
-        )
-        answer = llm.answer_from_context(question, search_results_text)
-        trace_msg = f"Researching (web search): {question}"
-    else:
-        answer = llm.answer_from_knowledge(question)
-        trace_msg = f"Researching (from knowledge): {question}"
+    try:
+        if llm.should_search(question):
+            results = tools.web_search(question)
+            sources = [r["url"] for r in results if r.get("url")][:5]
+            search_results_text = "\n\n".join(
+                f"Title: {r.get('title', '')}\n{r.get('content', r.get('snippet', ''))}"
+                for r in results
+            )
+            answer = llm.answer_from_context(question, search_results_text)
+            trace_msg = f"Researching (web): {question}"
+        else:
+            answer = llm.answer_from_knowledge(question)
+            trace_msg = f"Researching (knowledge): {question}"
+    except Exception as e:
+        log.error("Research node failed for question %r: %s", question, e)
+        answer = "Could not retrieve an answer for this question."
+        trace_msg = f"Researching (failed): {question}"
 
     note = {"question": question, "answer": answer.strip(), "sources": sources}
     notes = list(state.get("notes", [])) + [note]
@@ -142,18 +154,19 @@ def reflect_node(state: AgentState) -> dict:
     notes_list = [f"Q: {n['question']} A: {n['answer']}" for n in notes]
 
     try:
-        needs_more, gaps = llm.reflect(state["topic"], notes_list)
-    except Exception:
-        needs_more, gaps = False, ""
+        needs_more, additional = llm.reflect(state["topic"], notes_list)
+        # llm.reflect() returns (bool, list[str])
+        additional = [q.strip() for q in additional if q.strip()]
+    except Exception as e:
+        log.error("Reflect node failed: %s", e)
+        needs_more, additional = False, []
 
-    if not needs_more or not gaps:
+    if not needs_more or not additional:
         return {
             "decision": "done",
             "trace": _trace(state, "reflect", "Notes judged sufficient — moving to synthesis."),
         }
 
-    # gaps is a string describing what's missing; turn it into follow-up questions
-    additional = [gaps] if gaps else []
     msg = "Found gaps — adding follow-up questions: " + "; ".join(additional)
     return {
         "decision": "more_research",
@@ -180,6 +193,7 @@ def synthesize_node(state: AgentState) -> dict:
     try:
         report = llm.synthesise(state["topic"], notes_list)
     except Exception as e:
+        log.error("Synthesize node failed: %s", e)
         report = f"# {state['topic']}\n\n" + "\n\n".join(
             f"**{n['question']}**\n{n['answer']}" for n in notes
         )
@@ -191,13 +205,16 @@ def synthesize_node(state: AgentState) -> dict:
 
 
 def persist_node(state: AgentState) -> dict:
-    store.save_session(
-        session_id=state["session_id"],
-        topic=state["topic"],
-        plan=state.get("completed_questions", []),
-        notes=state.get("notes", []),
-        report=state.get("final_report", ""),
-    )
+    try:
+        store.save_session(
+            session_id=state["session_id"],
+            topic=state["topic"],
+            plan=state.get("completed_questions", []),
+            notes=state.get("notes", []),
+            report=state.get("final_report", ""),
+        )
+    except Exception as e:
+        log.error("Persist node failed: %s", e)
     return {"trace": _trace(state, "persist", "Saved this run to long-term memory.")}
 
 
@@ -208,18 +225,18 @@ def persist_node(state: AgentState) -> dict:
 def build_graph():
     g = StateGraph(AgentState)
 
-    g.add_node("recall", recall_node)
-    g.add_node("planner", planner_node)
-    g.add_node("research", research_node)
-    g.add_node("reflect", reflect_node)
+    g.add_node("recall",     recall_node)
+    g.add_node("planner",    planner_node)
+    g.add_node("research",   research_node)
+    g.add_node("reflect",    reflect_node)
     g.add_node("synthesize", synthesize_node)
-    g.add_node("persist", persist_node)
+    g.add_node("persist",    persist_node)
 
     g.add_edge(START, "recall")
     g.add_edge("recall", "planner")
     g.add_edge("planner", "research")
     g.add_conditional_edges("research", route_after_research, {"research": "research", "reflect": "reflect"})
-    g.add_conditional_edges("reflect", route_after_reflect, {"research": "research", "synthesize": "synthesize"})
+    g.add_conditional_edges("reflect",  route_after_reflect,  {"research": "research", "synthesize": "synthesize"})
     g.add_edge("synthesize", "persist")
     g.add_edge("persist", END)
 
@@ -232,17 +249,17 @@ graph = build_graph()
 def run(topic: str):
     """Generator that yields (node_name, snapshot) as each node finishes."""
     init: AgentState = {
-        "session_id":           str(uuid.uuid4()),
-        "topic":                topic,
-        "recalled_context":     None,
-        "plan":                 [],
-        "completed_questions":  [],
-        "notes":                [],
-        "reflect_iterations":   0,
+        "session_id":             str(uuid.uuid4()),
+        "topic":                  topic,
+        "recalled_context":       None,
+        "plan":                   [],
+        "completed_questions":    [],
+        "notes":                  [],
+        "reflect_iterations":     0,
         "max_reflect_iterations": 2,
-        "decision":             "",
-        "final_report":         "",
-        "trace":                [],
+        "decision":               "",
+        "final_report":           "",
+        "trace":                  [],
     }
     for event in graph.stream(init):
         for node_name, snapshot in event.items():
