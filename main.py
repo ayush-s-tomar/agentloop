@@ -77,10 +77,10 @@ async def research(req: Request, body: ResearchRequest):
 
     NODE_LABELS = {
         "recall":     "Checking memory …",
-        "plan":       "Planning sub-questions …",
+        "planner":    "Planning sub-questions …",
         "research":   "Researching …",
         "reflect":    "Reflecting on findings …",
-        "synthesise": "Writing report …",
+        "synthesize": "Writing report …",
         "persist":    "Saving to memory …",
     }
 
@@ -91,12 +91,12 @@ async def research(req: Request, body: ResearchRequest):
                 label = NODE_LABELS.get(node_name, node_name)
                 payload: dict = {"node": node_name, "label": label}
 
-                if node_name == "plan":
-                    payload["sub_questions"] = snapshot.get("sub_questions", [])
+                if node_name == "planner":
+                    payload["sub_questions"] = snapshot.get("plan", [])
                 elif node_name == "reflect":
-                    payload["reflection"] = snapshot.get("reflection", "")
-                elif node_name == "synthesise":
-                    final_report = snapshot.get("report", "")
+                    payload["reflection"] = snapshot.get("decision", "")
+                elif node_name == "synthesize":
+                    final_report = snapshot.get("final_report", "")
 
                 yield f"data: {json.dumps(payload)}\n\n"
 
@@ -105,7 +105,6 @@ async def research(req: Request, body: ResearchRequest):
 
         except Exception as exc:
             log.error("Stream error: %s", exc, exc_info=True)
-            # Don't leak internal details (org ids, token counts, etc.)
             safe_msg = "An error occurred during research. Please try again in a moment."
             yield f"data: {json.dumps({'node': '__error__', 'message': safe_msg})}\n\n"
 
