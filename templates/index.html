@@ -1,333 +1,609 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AgentLoop — research agent</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --ink:#11151c;
-    --ink-2:#191f29;
-    --paper:#f3ead7;
-    --paper-2:#ebe0c8;
-    --amber:#e8a23d;
-    --moss:#7a9b7e;
-    --rust:#c4583a;
-    --muted:#8a93a3;
-    --line:#2a3340;
-    --radius:10px;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--ink);
-    color:#dfe3ea;
-    font-family:'IBM Plex Sans',sans-serif;
-    min-height:100vh;
-  }
-  .wrap{max-width:1120px;margin:0 auto;padding:36px 24px 64px;}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentLoop — Research Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  header{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
-  .word{font-family:'Source Serif 4',serif;font-weight:700;font-size:30px;letter-spacing:0.2px;color:#f3ead7;}
-  .word span{color:var(--amber);}
-  .tagline{color:var(--muted);font-size:14px;margin:0 0 28px;}
-  .history-toggle{
-    background:none;border:1px solid var(--line);color:var(--muted);
-    font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;cursor:pointer;
-  }
-  .history-toggle:hover{border-color:var(--amber);color:var(--amber);}
+    :root {
+      --bg:          #f8f7f4;
+      --surface:     #ffffff;
+      --border:      #e5e2dc;
+      --border-dark: #ccc9c2;
+      --text-primary:   #1a1916;
+      --text-secondary: #6b6860;
+      --text-muted:     #9b9890;
+      --accent:      #2563eb;
+      --accent-light: #eff6ff;
+      --accent-border: #bfdbfe;
+      --success:     #16a34a;
+      --success-light: #f0fdf4;
+      --warn:        #d97706;
+      --warn-light:  #fffbeb;
+      --error:       #dc2626;
+      --error-light: #fef2f2;
+      --mono:        'JetBrains Mono', 'Courier New', monospace;
+      --sans:        'Inter', system-ui, sans-serif;
+      --radius:      8px;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md:   0 4px 16px rgba(0,0,0,.08);
+    }
 
-  .stepper{
-    display:flex;align-items:center;gap:0;margin:8px 0 28px;
-    overflow-x:auto;padding-bottom:4px;
-  }
-  .step{
-    display:flex;align-items:center;gap:8px;
-    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.06em;
-    color:var(--muted);white-space:nowrap;padding:8px 14px;border:1px solid var(--line);
-    border-radius:999px;background:var(--ink-2);transition:all .25s ease;
-  }
-  .step .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:all .25s ease;}
-  .step.active{color:var(--ink);background:var(--amber);border-color:var(--amber);}
-  .step.active .dot{background:var(--ink);box-shadow:0 0 0 4px rgba(232,162,61,0.25);}
-  .step.done{color:var(--moss);border-color:var(--moss);}
-  .step.done .dot{background:var(--moss);}
-  .step-connector{width:18px;height:1px;background:var(--line);flex:0 0 18px;}
+    html { font-size: 15px; }
 
-  .runrow{display:flex;gap:10px;margin-bottom:30px;flex-wrap:wrap;}
-  input[type=text]{
-    flex:1;min-width:240px;background:var(--ink-2);border:1px solid var(--line);color:#eef0f4;
-    padding:13px 16px;border-radius:var(--radius);font-size:15px;font-family:'IBM Plex Sans',sans-serif;
-  }
-  input[type=text]:focus{outline:none;border-color:var(--amber);}
-  button.run{
-    background:var(--amber);color:#1a1206;border:none;font-weight:600;font-size:14px;
-    padding:13px 22px;border-radius:var(--radius);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;
-  }
-  button.run:disabled{opacity:0.5;cursor:default;}
-  button.run:not(:disabled):hover{background:#f0b15c;}
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
 
-  .grid{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;}
-  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--text-primary);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-icon svg { width: 16px; height: 16px; }
+    .badge {
+      font-size: .7rem;
+      font-weight: 500;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.02em;
+    }
+    .header-links { display: flex; gap: 1rem; align-items: center; }
+    .header-links a {
+      font-size: .85rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .header-links a:hover { color: var(--text-primary); }
 
-  .panel{border-radius:14px;overflow:hidden;border:1px solid var(--line);}
-  .panel h2{
-    margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;
-    text-transform:uppercase;color:var(--muted);padding:13px 18px;border-bottom:1px solid var(--line);
-  }
+    /* ── Layout ── */
+    main {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
 
-  .trace{background:var(--ink-2);min-height:420px;max-height:560px;overflow-y:auto;}
-  .trace-body{padding:14px 16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;}
-  .trace-line{margin-bottom:9px;color:#c7cdd8;}
-  .trace-line .node{color:var(--amber);}
-  .trace-line.sub{color:var(--muted);padding-left:14px;}
-  .trace-line.error{color:var(--rust);}
-  .trace-empty{color:var(--muted);font-style:italic;}
+    /* ── Hero ── */
+    .hero { text-align: center; margin-bottom: 2.5rem; }
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: .5rem;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero p {
+      color: var(--text-secondary);
+      font-size: .95rem;
+      max-width: 500px;
+      margin: 0 auto;
+    }
 
-  .report{background:var(--paper);color:#2a2218;min-height:420px;}
-  .report-body{padding:26px 30px;font-family:'Source Serif 4',serif;font-size:16px;line-height:1.7;}
-  .report-body h1{font-size:26px;margin:0 0 14px;}
-  .report-body h2{font-size:19px;margin:26px 0 10px;border-top:1px solid var(--paper-2);padding-top:18px;}
-  .report-body p{margin:0 0 12px;}
-  .report-body ul{margin:0 0 12px;padding-left:22px;}
-  .report-body a{color:#7a4a23;text-decoration:underline;}
-  .report-empty{font-family:'IBM Plex Sans',sans-serif;color:#9c8f74;font-size:14px;padding:4px 0;}
-  .recalled{
-    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7a6a45;background:var(--paper-2);
-    padding:10px 14px;border-radius:8px;margin-bottom:18px;
-  }
+    /* ── Search box ── */
+    .search-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .search-row {
+      display: flex;
+      gap: .75rem;
+    }
+    #topic {
+      flex: 1;
+      height: 44px;
+      padding: 0 .875rem;
+      font-family: var(--sans);
+      font-size: .95rem;
+      color: var(--text-primary);
+      background: var(--bg);
+      border: 1px solid var(--border-dark);
+      border-radius: 6px;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    #topic::placeholder { color: var(--text-muted); }
+    #topic:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    #btn {
+      height: 44px;
+      padding: 0 1.25rem;
+      background: var(--text-primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-family: var(--sans);
+      font-size: .9rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity .15s, transform .1s;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    #btn:hover:not(:disabled) { opacity: .85; }
+    #btn:active:not(:disabled) { transform: scale(.98); }
+    #btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-icon { width: 16px; height: 16px; }
+    .search-meta {
+      margin-top: .75rem;
+      font-size: .78rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 1.25rem;
+    }
+    .search-meta span { display: flex; align-items: center; gap: .3rem; }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+    }
 
-  .history{margin-top:10px;display:none;flex-wrap:wrap;gap:8px;}
-  .history.open{display:flex;}
-  .pill{
-    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);
-    border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;background:var(--ink-2);
-  }
-  .pill:hover{border-color:var(--amber);color:var(--amber);}
-</style>
+    /* ── Pipeline trace ── */
+    #pipeline { display: none; margin-bottom: 1.75rem; }
+
+    .pipeline-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .75rem;
+    }
+    .pipeline-header h2 {
+      font-size: .8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-secondary);
+    }
+    .pipeline-timer {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--text-muted);
+    }
+
+    .steps {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding: .75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      animation: fadeIn .2s ease;
+    }
+    .step:last-child { border-bottom: none; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+    .step-icon {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .step-icon.pending  { background: var(--bg); border: 1.5px solid var(--border-dark); }
+    .step-icon.running  { background: var(--accent-light); border: 1.5px solid var(--accent-border); }
+    .step-icon.done     { background: var(--success-light); border: 1.5px solid #bbf7d0; }
+
+    .step-body { flex: 1; min-width: 0; }
+    .step-label {
+      font-size: .88rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .step-detail {
+      margin-top: .3rem;
+      font-size: .78rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .pill-list { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
+    .pill {
+      font-size: .72rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    /* spinner */
+    .spinner {
+      width: 12px; height: 12px;
+      border: 2px solid var(--accent-border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .check-svg { width: 12px; height: 12px; }
+
+    /* ── Report ── */
+    #report-section { display: none; }
+
+    .report-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .75rem;
+    }
+    .report-header h2 {
+      font-size: .8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-secondary);
+    }
+    .copy-btn {
+      font-size: .78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-dark);
+      background: var(--surface);
+      padding: 4px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex; align-items: center; gap: .35rem;
+    }
+    .copy-btn:hover { border-color: var(--text-primary); color: var(--text-primary); }
+
+    .report-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 2rem;
+      box-shadow: var(--shadow-sm);
+    }
+    /* Markdown rendering */
+    .report-card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 1.5rem 0 .5rem;
+      padding-bottom: .4rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+    .report-card h2:first-child { margin-top: 0; }
+    .report-card p {
+      margin-bottom: .75rem;
+      color: var(--text-primary);
+      font-size: .92rem;
+    }
+    .report-card ul, .report-card ol {
+      padding-left: 1.4rem;
+      margin-bottom: .75rem;
+    }
+    .report-card li {
+      margin-bottom: .3rem;
+      font-size: .92rem;
+    }
+    .report-card strong { font-weight: 600; }
+    .report-card em { color: var(--text-secondary); }
+    .report-card code {
+      font-family: var(--mono);
+      font-size: .82em;
+      background: var(--bg);
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Error ── */
+    #error-section {
+      display: none;
+      background: var(--error-light);
+      border: 1px solid #fecaca;
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      color: var(--error);
+      font-size: .88rem;
+      margin-bottom: 1.5rem;
+    }
+    #error-section strong { display: block; margin-bottom: .2rem; font-weight: 600; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: .78rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--text-secondary); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <div class="word">Agent<span>Loop</span></div>
-    <button class="history-toggle" id="historyToggle" type="button">past sessions ▾</button>
-  </header>
-  <p class="tagline">A tool-using research agent. It recalls prior runs, plans sub-questions, searches the live web, checks its own gaps, and writes a sourced report.</p>
+<header>
+  <a class="logo" href="/">
+    <span class="logo-icon">
+      <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 8a6 6 0 1 1 10.472 4L14 13.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="8" cy="8" r="2" fill="#fff"/>
+      </svg>
+    </span>
+    AgentLoop
+  </a>
+  <div style="display:flex;align-items:center;gap:.75rem;">
+    <span class="badge">Multi-step AI Agent</span>
+    <div class="header-links">
+      <a href="https://github.com" target="_blank">GitHub</a>
+    </div>
+  </div>
+</header>
 
-  <div class="history" id="history"></div>
-  <div class="stepper" id="stepper"></div>
-
-  <div class="runrow">
-    <input type="text" id="topic" placeholder='Ask it to research something — e.g. "impact of the EU AI Act on startups"' />
-    <button class="run" id="runBtn" type="button">Run →</button>
+<main>
+  <div class="hero">
+    <h1>Research any topic with an <em>autonomous agent</em></h1>
+    <p>Plans sub-questions, searches the web, reflects on gaps, and writes a structured report.</p>
   </div>
 
-  <div class="grid">
-    <div class="panel trace">
-      <h2>Live trace</h2>
-      <div class="trace-body" id="traceBody">
-        <div class="trace-empty">Nothing running yet. Enter a topic and hit run.</div>
-      </div>
+  <div class="search-card">
+    <div class="search-row">
+      <input id="topic" type="text" placeholder="e.g. How does Retrieval-Augmented Generation work?" maxlength="300" autocomplete="off" />
+      <button id="btn" onclick="startResearch()">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Research
+      </button>
     </div>
-    <div class="panel report">
+    <div class="search-meta">
+      <span><span class="dot"></span>LLM: Groq · Llama 3</span>
+      <span><span class="dot"></span>Search: Tavily</span>
+      <span><span class="dot"></span>Graph: LangGraph</span>
+    </div>
+  </div>
+
+  <div id="error-section">
+    <strong>Something went wrong</strong>
+    <span id="error-msg"></span>
+  </div>
+
+  <div id="pipeline">
+    <div class="pipeline-header">
+      <h2>Pipeline trace</h2>
+      <span class="pipeline-timer" id="timer">0.0s</span>
+    </div>
+    <div class="steps" id="steps"></div>
+  </div>
+
+  <div id="report-section">
+    <div class="report-header">
       <h2>Report</h2>
-      <div class="report-body" id="reportBody">
-        <div class="report-empty">The final report will appear here once the agent finishes.</div>
-      </div>
+      <button class="copy-btn" onclick="copyReport()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+          <rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M3 3H3a1 1 0 0 0-1 1v9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        Copy Markdown
+      </button>
     </div>
+    <div class="report-card" id="report-body"></div>
   </div>
+</main>
 
-</div>
+<footer>
+  Built with FastAPI · LangGraph · Groq · Tavily &nbsp;·&nbsp;
+  <a href="https://github.com" target="_blank">View source</a>
+</footer>
 
 <script>
-const STEPS = [
-  {key:'recall', label:'recall'},
-  {key:'planner', label:'plan'},
-  {key:'research', label:'research'},
-  {key:'reflect', label:'reflect'},
-  {key:'synthesize', label:'synthesize'},
-  {key:'persist', label:'save'},
-];
-
-const stepperEl = document.getElementById('stepper');
-function renderStepper(activeKey, doneKeys){
-  stepperEl.innerHTML = '';
-  STEPS.forEach((s, i) => {
-    const el = document.createElement('div');
-    el.className = 'step' + (s.key === activeKey ? ' active' : '') + (doneKeys.has(s.key) ? ' done' : '');
-    el.innerHTML = '<span class="dot"></span>' + s.label;
-    stepperEl.appendChild(el);
-    if (i < STEPS.length - 1){
-      const c = document.createElement('div');
-      c.className = 'step-connector';
-      stepperEl.appendChild(c);
-    }
-  });
-}
-renderStepper(null, new Set());
-
-const traceBody = document.getElementById('traceBody');
-const reportBody = document.getElementById('reportBody');
-const runBtn = document.getElementById('runBtn');
-const topicInput = document.getElementById('topic');
-
-function clearTrace(){ traceBody.innerHTML = ''; }
-function addTraceLine(node, message, isError){
-  const row = document.createElement('div');
-  const isSub = message.trim().startsWith('->');
-  row.className = 'trace-line' + (isSub ? ' sub' : '') + (isError ? ' error' : '');
-  if (isSub){
-    row.textContent = message;
-  } else {
-    row.innerHTML = '<span class="node">' + node + ':</span> ' + message;
+  /* ── Minimal Markdown → HTML ── */
+  function mdToHtml(md) {
+    return md
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+      .replace(/\n\n+/g, '</p><p>')
+      .replace(/^(?!<[hul])(.+)$/gm, (m) => m.trim() ? m : '')
+      .replace(/^([^<].+[^>])$/gm, (m) => m.trim() ? `<p>${m}</p>` : '');
   }
-  traceBody.appendChild(row);
-  traceBody.scrollTop = traceBody.scrollHeight;
-}
 
-function renderMarkdown(md){
-  const lines = md.replace(/\r\n/g, '\n').split('\n');
-  let html = '';
-  let inList = false;
-  const inline = (t) => t
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/(^|[^"'>])(https?:\/\/[^\s)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  let rawReport = '';
+  let timerInterval = null;
+  let startTime = null;
 
-  for (const raw of lines){
-    const line = raw.trim();
-    if (!line){ if (inList){ html += '</ul>'; inList = false; } continue; }
-    if (line.startsWith('## ')){ if (inList){ html += '</ul>'; inList = false; } html += '<h2>' + inline(line.slice(3)) + '</h2>'; continue; }
-    if (line.startsWith('# ')){ if (inList){ html += '</ul>'; inList = false; } html += '<h1>' + inline(line.slice(2)) + '</h1>'; continue; }
-    if (line.startsWith('- ') || line.startsWith('* ')){
-      if (!inList){ html += '<ul>'; inList = true; }
-      html += '<li>' + inline(line.slice(2)) + '</li>';
-      continue;
-    }
-    if (inList){ html += '</ul>'; inList = false; }
-    html += '<p>' + inline(line) + '</p>';
+  const NODE_ORDER = ['recall','plan','research','reflect','synthesise','persist'];
+
+  const CHECK_SVG = `<svg class="check-svg" viewBox="0 0 12 12" fill="none">
+    <path d="M2 6l3 3 5-5" stroke="#16a34a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+  const SPIN_HTML = `<div class="spinner"></div>`;
+
+  function stepEl(id) { return document.getElementById('step-' + id); }
+
+  function addStep(node, label) {
+    const wrap = document.getElementById('steps');
+    const div = document.createElement('div');
+    div.className = 'step';
+    div.id = 'step-' + node;
+    div.innerHTML = `
+      <div class="step-icon running" id="icon-${node}">${SPIN_HTML}</div>
+      <div class="step-body">
+        <div class="step-label">${label}</div>
+        <div class="step-detail" id="detail-${node}"></div>
+      </div>`;
+    wrap.appendChild(div);
   }
-  if (inList) html += '</ul>';
-  return html;
-}
 
-function showReport(reportMd){
-  reportBody.innerHTML = renderMarkdown(reportMd || '*(empty report)*');
-}
-
-// ── Polling architecture (replaces SSE — works on Render free tier) ──
-let pollInterval = null;
-let seenTraceLen = 0;
-
-function stopPolling(){
-  if (pollInterval){ clearInterval(pollInterval); pollInterval = null; }
-}
-
-async function pollJob(jobId){
-  try {
-    const res = await fetch('/api/research/status/' + jobId);
-    if (!res.ok){ stopPolling(); return; }
-    const data = await res.json();
-
-    // Render new trace lines
-    const newEvents = data.trace.slice(seenTraceLen);
-    seenTraceLen = data.trace.length;
-    const doneKeys = new Set();
-
-    newEvents.forEach(evt => {
-      addTraceLine(evt.node, evt.message, false);
-    });
-
-    // Update stepper based on all trace so far
-    if (data.trace.length > 0){
-      const lastNode = data.trace[data.trace.length - 1].node;
-      const idx = STEPS.findIndex(s => s.key === lastNode);
-      for (let i = 0; i < idx; i++) doneKeys.add(STEPS[i].key);
-      renderStepper(data.status === 'done' ? null : lastNode, data.status === 'done' ? new Set(STEPS.map(s=>s.key)) : doneKeys);
-    }
-
-    if (data.status === 'done'){
-      stopPolling();
-      showReport(data.report);
-      runBtn.disabled = false;
-      runBtn.textContent = 'Run →';
-      loadHistory();
-    } else if (data.status === 'error'){
-      stopPolling();
-      addTraceLine('error', data.error || 'Unknown error', true);
-      runBtn.disabled = false;
-      runBtn.textContent = 'Run →';
-    }
-  } catch(e){
-    // network hiccup — keep polling
+  function completeStep(node) {
+    const icon = document.getElementById('icon-' + node);
+    if (icon) { icon.className = 'step-icon done'; icon.innerHTML = CHECK_SVG; }
   }
-}
 
-async function run(){
-  const topic = topicInput.value.trim();
-  if (!topic){ topicInput.focus(); return; }
-  stopPolling();
-
-  clearTrace();
-  reportBody.innerHTML = '<div class="report-empty">Working…</div>';
-  runBtn.disabled = true;
-  runBtn.textContent = 'Running…';
-  seenTraceLen = 0;
-  renderStepper(STEPS[0].key, new Set());
-
-  try {
-    const res = await fetch('/api/research/start', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({topic})
-    });
-    const {job_id} = await res.json();
-    pollInterval = setInterval(() => pollJob(job_id), 2000);
-  } catch(e) {
-    addTraceLine('error', 'Failed to start research job: ' + e.message, true);
-    runBtn.disabled = false;
-    runBtn.textContent = 'Run →';
+  function setDetail(node, html) {
+    const el = document.getElementById('detail-' + node);
+    if (el) el.innerHTML = html;
   }
-}
 
-runBtn.addEventListener('click', run);
-topicInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+  function startTimer() {
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+      document.getElementById('timer').textContent =
+        ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+    }, 100);
+  }
 
-// ── History ──
-const historyEl = document.getElementById('history');
-const historyToggle = document.getElementById('historyToggle');
-historyToggle.addEventListener('click', () => historyEl.classList.toggle('open'));
+  function stopTimer() { clearInterval(timerInterval); }
 
-async function loadHistory(){
-  try{
-    const res = await fetch('/api/history');
-    const sessions = await res.json();
-    historyEl.innerHTML = '';
-    if (!sessions.length){
-      historyEl.innerHTML = '<span class="report-empty">No past sessions yet.</span>';
-      return;
-    }
-    sessions.forEach(s => {
-      const pill = document.createElement('div');
-      pill.className = 'pill';
-      pill.textContent = s.topic;
-      pill.addEventListener('click', async () => {
-        const r = await fetch('/api/history/' + s.id);
-        const detail = await r.json();
-        clearTrace();
-        addTraceLine('history', 'Loaded saved session: ' + detail.topic);
-        showReport(detail.report);
-        renderStepper(null, new Set(STEPS.map(x => x.key)));
+  function reset() {
+    document.getElementById('steps').innerHTML = '';
+    document.getElementById('pipeline').style.display = 'none';
+    document.getElementById('report-section').style.display = 'none';
+    document.getElementById('error-section').style.display = 'none';
+    document.getElementById('timer').textContent = '0.0s';
+    rawReport = '';
+    stopTimer();
+  }
+
+  function showError(msg) {
+    stopTimer();
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('error-section').style.display = 'block';
+    document.getElementById('btn').disabled = false;
+  }
+
+  async function startResearch() {
+    const topic = document.getElementById('topic').value.trim();
+    if (!topic) { document.getElementById('topic').focus(); return; }
+
+    reset();
+    document.getElementById('btn').disabled = true;
+    document.getElementById('pipeline').style.display = 'block';
+    startTimer();
+
+    const activeNodes = new Set();
+
+    try {
+      const resp = await fetch('/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
       });
-      historyEl.appendChild(pill);
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: 'Request failed.' }));
+        showError(err.detail || 'Request failed.');
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          let ev;
+          try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+          if (ev.node === '__error__') { showError(ev.message); return; }
+
+          if (ev.node === '__done__') {
+            stopTimer();
+            rawReport = ev.report || '';
+            // mark last active node done
+            activeNodes.forEach(n => completeStep(n));
+
+            if (rawReport) {
+              document.getElementById('report-body').innerHTML = mdToHtml(rawReport);
+              document.getElementById('report-section').style.display = 'block';
+            }
+            document.getElementById('btn').disabled = false;
+            return;
+          }
+
+          // complete previous node
+          activeNodes.forEach(n => completeStep(n));
+          activeNodes.clear();
+          activeNodes.add(ev.node);
+
+          // add the new step row
+          addStep(ev.node, ev.label);
+
+          if (ev.sub_questions?.length) {
+            const pills = ev.sub_questions.map(q => `<span class="pill">${q}</span>`).join('');
+            setDetail(ev.node, `<div class="pill-list">${pills}</div>`);
+          }
+          if (ev.reflection) {
+            setDetail(ev.node, `Gaps identified: ${ev.reflection}`);
+          }
+        }
+      }
+    } catch (err) {
+      showError('Network error. Is the server running?');
+    }
+  }
+
+  function copyReport() {
+    if (!rawReport) return;
+    navigator.clipboard.writeText(rawReport).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = '✓ Copied';
+      setTimeout(() => { btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="4" y="4" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3 3H3a1 1 0 0 0-1 1v9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> Copy Markdown`; }, 2000);
     });
-  } catch(e){ /* ignore on first paint */ }
-}
-loadHistory();
+  }
+
+  // Enter key submits
+  document.getElementById('topic').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startResearch();
+  });
 </script>
 </body>
 </html>
