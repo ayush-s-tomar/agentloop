@@ -14,9 +14,7 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 <summary><strong>▶ Watch the 75s demo video</strong></summary>
 <br>
 
-https://github.com/ayush-s-tomar/agentloop/assets/agentloop_demo_final.mp4
-
-*(GitHub renders uploaded video files inline — see [Adding the video](#adding-the-video) below if it doesn't preview.)*
+https://github.com/user-attachments/assets/d13b785b-27c6-40dc-ad06-05f1a9fc3d43
 
 </details>
 
@@ -145,10 +143,3 @@ Free API keys (no credit card needed):
 - Token-level streaming within each node for fully real-time output
 - Eval harness with LLM-as-judge rubric to catch prompt regressions
 - Persistent (non-ephemeral) memory backend for the hosted deployment
-
----
-
-<a name="adding-the-video"></a>
-### Adding the video (maintainer note)
-
-To embed the demo video so it plays inline on GitHub: open a new issue or PR comment on this repo, drag `agentloop_demo_final.mp4` into the text box, wait for it to upload, then copy the generated `https://github.com/.../assets/...mp4` URL it produces and swap it into the `<summary>` block above. GitHub doesn't support direct video embeds from repo file paths — only from its asset upload URLs.
