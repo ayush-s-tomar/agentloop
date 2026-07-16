@@ -19,8 +19,13 @@ from groq import APIStatusError, Groq, RateLimitError
 log = logging.getLogger(__name__)
 
 # ---------- model aliases ----------
-FAST_MODEL   = "llama-3.1-8b-instant"  # high TPM limit on free tier — use for research loops
-REASON_MODEL = "llama3-70b-8192"        # smarter — use for plan / reflect / synthesise
+FAST_MODEL   = os.environ.get("GROQ_FAST_MODEL", "llama-3.1-8b-instant")   # high TPM limit on free tier — use for research loops
+REASON_MODEL = os.environ.get("GROQ_REASON_MODEL", "llama-3.1-8b-instant")  # smarter — use for plan / reflect / synthesise
+# NOTE: previously hardcoded to "llama3-70b-8192", which Groq has decommissioned.
+# Every call using REASON_MODEL was silently failing and falling into fallback
+# paths in graph.py (planner_node, reflect_node, synthesize_node).
+# If you want a genuinely larger model again, check Groq's current model list
+# and set GROQ_REASON_MODEL in your .env — do not hardcode it here.
 
 MAX_RETRIES    = 6
 BASE_DELAY_SEC = 1.5  # minimum wait between retries
@@ -132,15 +137,38 @@ def plan(topic: str, prior_notes: list[str]) -> list[str]:
     return json.loads(_strip_fences(content))
 
 
+_SEARCH_KEYWORDS = (
+    "current", "latest", "today", "now", "recent", "2024", "2025", "2026",
+    "2027", "price", "pricing", "cost", "rate limit", "release", "version",
+    "news", "update", "announcement",
+)
+
+
 def should_search(question: str) -> bool:
-    """Decide whether a question requires a live web search."""
+    """Decide whether a question requires a live web search.
+
+    Defaults to searching whenever there's real doubt: an LLM saying "NO" on
+    a time-sensitive question (pricing, versions, "current/latest") silently
+    routes to answer_from_knowledge(), which just guesses from the model's
+    training cutoff. A keyword check catches the obvious cases before we
+    even ask the LLM, since those are exactly the questions where a wrong
+    NO is most costly and most likely.
+    """
+    if any(kw in question.lower() for kw in _SEARCH_KEYWORDS):
+        return True
+
     answer = _call(
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "Answer with exactly one word: YES if this question requires "
-                    "current/factual web data, NO if it can be answered from general knowledge."
+                    "Answer with exactly one word: YES or NO.\n"
+                    "Say YES if the question could involve any current, "
+                    "recent, time-sensitive, or frequently-changing "
+                    "information (prices, versions, dates, news, statuses, "
+                    "rankings, availability, etc.) — when in doubt, say YES.\n"
+                    "Say NO only for timeless facts, definitions, or "
+                    "concepts that don't change over time."
                 ),
             },
             {"role": "user", "content": question},
@@ -148,7 +176,7 @@ def should_search(question: str) -> bool:
         model=FAST_MODEL,
         max_tokens=5,
     )
-    return answer.strip().upper().startswith("Y")
+    return not answer.strip().upper().startswith("N")
 
 
 def answer_from_context(question: str, search_results: str) -> str:
@@ -229,7 +257,9 @@ def synthesise(topic: str, notes: list[str]) -> str:
                     "You are a senior research analyst. "
                     "Write a well-structured research report in Markdown with: "
                     "## Overview, ## Key Findings (bullet points), ## Analysis, ## Conclusion. "
-                    "Base it ONLY on the provided notes. Be clear and professional."
+                    "Base it ONLY on the provided notes. Be clear and professional. "
+                    "When writing prices, spell out the currency code (e.g. 'USD 0.05') "
+                    "instead of using a dollar sign, since $ is reserved for markdown math."
                 ),
             },
             {
