@@ -85,6 +85,22 @@ def get_session(session_id: str) -> Optional[Dict[str, Any]]:
         return d
 
 
+def delete_session(session_id: str) -> None:
+    """Delete a single past run by id."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+
+
+def delete_all_sessions() -> None:
+    """
+    Wipe all long-term memory. Used by the 'Clear history' control in the
+    UI — e.g. before recording a clean demo video/screenshot, or if a user
+    just wants a fresh start.
+    """
+    with _connect() as conn:
+        conn.execute("DELETE FROM sessions")
+
+
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 

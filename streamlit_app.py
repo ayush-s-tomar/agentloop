@@ -101,6 +101,30 @@ with st.sidebar:
     st.divider()
     st.caption("Backend: LangGraph · Groq · Tavily · SQLite")
 
+    if sessions:
+        if "confirm_clear" not in st.session_state:
+            st.session_state.confirm_clear = False
+
+        if not st.session_state.confirm_clear:
+            if st.button("Clear history", use_container_width=True):
+                st.session_state.confirm_clear = True
+                st.rerun()
+        else:
+            st.warning("Delete all past sessions? This can't be undone.")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("Yes, clear", type="primary", use_container_width=True):
+                    store.delete_all_sessions()
+                    st.session_state.confirm_clear = False
+                    st.session_state.report = None
+                    st.session_state.report_raw = None
+                    st.session_state.topic_ran = None
+                    st.rerun()
+            with col_b:
+                if st.button("Cancel", use_container_width=True):
+                    st.session_state.confirm_clear = False
+                    st.rerun()
+
 # ---------------------------------------------------------------------------
 # Main — input
 # ---------------------------------------------------------------------------
