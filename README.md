@@ -6,6 +6,7 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 
 **Plans → Searches → Reflects → Sourced report**
 
+![CI](https://github.com/ayush-s-tomar/agentloop/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Streamlit](https://img.shields.io/badge/deployed-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)
