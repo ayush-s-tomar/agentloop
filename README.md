@@ -6,6 +6,12 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 
 **Plans → Searches → Reflects → Sourced report**
 
+![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Streamlit](https://img.shields.io/badge/deployed-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)
+![LangGraph](https://img.shields.io/badge/agent-LangGraph-1C3C3C)
+![Groq](https://img.shields.io/badge/LLM-Groq-F55036)
+
 🔗 **[Live Demo](https://agentloop.streamlit.app)** · 📦 **[Source](https://github.com/ayush-s-tomar/agentloop)**
 
 ![AgentLoop demo screenshot](docs/agentloop_readme_hero.png)
