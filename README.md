@@ -1,4 +1,4 @@
-# AgentLoop
+﻿# AgentLoop
 
 **A multi-step research agent with tool-use and memory.**
 
@@ -15,13 +15,13 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 
 🔗 **[Live Demo](https://agentloop.streamlit.app)** · 📦 **[Source](https://github.com/ayush-s-tomar/agentloop)**
 
-![AgentLoop demo screenshot](docs/agentloop_readme_hero.png)
+![AgentLoop demo — input to sourced report](docs/agentloop_demo.gif)
 
 <details>
-<summary><strong>▶ Watch the 75s demo video</strong></summary>
+<summary><strong>▶ Watch the full demo video (with narrated pipeline steps)</strong></summary>
 <br>
 
-https://github.com/user-attachments/assets/d13b785b-27c6-40dc-ad06-05f1a9fc3d43
+https://github.com/user-attachments/assets/15d46d67-dbfb-41ea-90f5-449ec98fd61f
 
 </details>
 
@@ -150,3 +150,4 @@ Free API keys (no credit card needed):
 - Token-level streaming within each node for fully real-time output
 - Eval harness with LLM-as-judge rubric to catch prompt regressions
 - Persistent (non-ephemeral) memory backend for the hosted deployment
+
