@@ -1,4 +1,4 @@
-﻿# AgentLoop
+# AgentLoop
 
 **A multi-step research agent with tool-use and memory.**
 
@@ -150,4 +150,3 @@ Free API keys (no credit card needed):
 - Token-level streaming within each node for fully real-time output
 - Eval harness with LLM-as-judge rubric to catch prompt regressions
 - Persistent (non-ephemeral) memory backend for the hosted deployment
-
