@@ -15,6 +15,10 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 
 🔗 **[Live Demo](https://agentloop.streamlit.app)** · 📦 **[Source](https://github.com/ayush-s-tomar/agentloop)**
 
+![AgentLoop hero](docs/agentloop_readme_hero.png)
+
+**See it run:**
+
 ![AgentLoop demo — input to sourced report](docs/agentloop_demo.gif)
 
 <details>
