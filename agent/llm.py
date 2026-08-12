@@ -18,6 +18,22 @@ from groq import APIStatusError, Groq, RateLimitError
 
 log = logging.getLogger(__name__)
 
+# ---------- token usage tracking (for AgentOps tracing) ----------
+# Accumulates across every _call() made during one node's execution.
+# Nodes call reset_usage() at the start and get_usage() at the end to
+# report real input/output token counts to the tracer.
+_usage_accumulator = {"input_tokens": 0, "output_tokens": 0}
+
+
+def reset_usage() -> None:
+    _usage_accumulator["input_tokens"] = 0
+    _usage_accumulator["output_tokens"] = 0
+
+
+def get_usage() -> dict:
+    return dict(_usage_accumulator)
+
+
 # ---------- model aliases ----------
 FAST_MODEL   = os.environ.get("GROQ_FAST_MODEL", "llama-3.1-8b-instant")   # high TPM limit on free tier — use for research loops
 REASON_MODEL = os.environ.get("GROQ_REASON_MODEL", "llama-3.1-8b-instant")  # smarter — use for plan / reflect / synthesise
@@ -62,6 +78,9 @@ def _call(
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
+            if resp.usage:
+                _usage_accumulator["input_tokens"] += resp.usage.prompt_tokens
+                _usage_accumulator["output_tokens"] += resp.usage.completion_tokens
             return resp.choices[0].message.content.strip()
 
         except RateLimitError as exc:

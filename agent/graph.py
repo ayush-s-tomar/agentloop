@@ -32,6 +32,8 @@ from langgraph.graph import StateGraph, START, END
 from agent.state import AgentState
 from agent import llm, tools
 from memory import store
+from tracer.trace import traced, set_run_context
+from tracer.db import log_eval_score
 
 log = logging.getLogger(__name__)
 
@@ -65,7 +67,9 @@ def recall_node(state: AgentState) -> dict:
     }
 
 
+@traced(step_name="planner", model="llama-3.1-8b-instant")
 def planner_node(state: AgentState) -> dict:
+    llm.reset_usage()
     max_q = int(os.environ.get("MAX_SUBQUESTIONS", "4"))
     topic = state["topic"]
 
@@ -94,10 +98,13 @@ def planner_node(state: AgentState) -> dict:
         "completed_questions": [],
         "reflect_iterations": 0,
         "trace": _trace(state, "planner", msg),
+        **llm.get_usage(),
     }
 
 
+@traced(step_name="research", model="llama-3.1-8b-instant")
 def research_node(state: AgentState) -> dict:
+    llm.reset_usage()
     plan = list(state.get("plan", []))
     if not plan:
         return {}
@@ -133,6 +140,7 @@ def research_node(state: AgentState) -> dict:
         "notes": notes,
         "completed_questions": completed,
         "trace": _trace(state, "research", trace_msg),
+        **llm.get_usage(),
     }
 
 
@@ -140,7 +148,9 @@ def route_after_research(state: AgentState) -> str:
     return "research" if state.get("plan") else "reflect"
 
 
+@traced(step_name="reflect", model="llama-3.1-8b-instant")
 def reflect_node(state: AgentState) -> dict:
+    llm.reset_usage()
     iterations = state.get("reflect_iterations", 0)
     max_iterations = state.get("max_reflect_iterations", 2)
 
@@ -148,6 +158,7 @@ def reflect_node(state: AgentState) -> dict:
         return {
             "decision": "done",
             "trace": _trace(state, "reflect", "Reached reflection cap — moving to synthesis."),
+            **llm.get_usage(),
         }
 
     notes = state.get("notes", [])
@@ -165,6 +176,7 @@ def reflect_node(state: AgentState) -> dict:
         return {
             "decision": "done",
             "trace": _trace(state, "reflect", "Notes judged sufficient — moving to synthesis."),
+            **llm.get_usage(),
         }
 
     msg = "Found gaps — adding follow-up questions: " + "; ".join(additional)
@@ -173,6 +185,7 @@ def reflect_node(state: AgentState) -> dict:
         "plan": additional,
         "reflect_iterations": iterations + 1,
         "trace": _trace(state, "reflect", msg),
+        **llm.get_usage(),
     }
 
 
@@ -180,7 +193,9 @@ def route_after_reflect(state: AgentState) -> str:
     return "research" if state.get("decision") == "more_research" else "synthesize"
 
 
+@traced(step_name="synthesize", model="llama-3.1-8b-instant")
 def synthesize_node(state: AgentState) -> dict:
+    llm.reset_usage()
     notes = state.get("notes", [])
     notes_list = [
         f"Q: {n['question']}\nA: {n['answer']}\nSources: {', '.join(n['sources']) or 'none'}"
@@ -201,6 +216,7 @@ def synthesize_node(state: AgentState) -> dict:
     return {
         "final_report": report,
         "trace": _trace(state, "synthesize", "Final report written."),
+        **llm.get_usage(),
     }
 
 
@@ -248,6 +264,8 @@ graph = build_graph()
 
 def run(topic: str):
     """Generator that yields (node_name, snapshot) as each node finishes."""
+    run_id = set_run_context(agent_name="AgentLoop")
+
     init: AgentState = {
         "session_id":             str(uuid.uuid4()),
         "topic":                  topic,
@@ -264,3 +282,7 @@ def run(topic: str):
     for event in graph.stream(init):
         for node_name, snapshot in event.items():
             yield node_name, snapshot
+
+    # Placeholder eval score for now — swap in a real metric (e.g. report
+    # length/quality check, LLM-as-judge, keyword coverage) once you have one.
+    log_eval_score(run_id=run_id, agent_name="AgentLoop", score=0.8)
