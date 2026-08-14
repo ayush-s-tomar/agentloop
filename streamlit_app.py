@@ -11,8 +11,9 @@ Run locally:
 Deploy:
     Push this repo to GitHub, create a new app on share.streamlit.io pointing
     at streamlit_app.py, and add GROQ_API_KEY / TAVILY_API_KEY / (optionally)
-    GROQ_FAST_MODEL, GROQ_REASON_MODEL, MAX_SUBQUESTIONS in the app's
-    "Secrets" panel (TOML format, e.g. GROQ_API_KEY = "sk-...").
+    GROQ_FAST_MODEL, GROQ_REASON_MODEL, MAX_SUBQUESTIONS, and the
+    SUPABASE_DB_* variables in the app's "Secrets" panel (TOML format,
+    e.g. GROQ_API_KEY = "sk-...").
 """
 
 import logging
@@ -22,19 +23,29 @@ import streamlit as st
 
 # ---------------------------------------------------------------------------
 # Secrets → environment
-# agent/llm.py and agent/tools.py read os.environ directly, so we mirror
-# whatever Streamlit Cloud gives us in st.secrets into the process env
-# before importing anything that touches Groq/Tavily at import time.
-# ---------------------------------------------------------------------------
-for key in (
-    "GROQ_API_KEY",
-    "TAVILY_API_KEY",
-    "GROQ_FAST_MODEL",
-    "GROQ_REASON_MODEL",
-    "MAX_SUBQUESTIONS",
-):
-    if key in st.secrets and key not in os.environ:
-        os.environ[key] = str(st.secrets[key])
+# agent/llm.py, agent/tools.py, and tracer/db.py all read os.environ
+# directly, so we mirror whatever Streamlit Cloud gives us in st.secrets
+# into the process env before importing anything that touches Groq/Tavily/
+# Postgres at import time. Wrapped in try/except because locally (no
+# secrets.toml file at all) newer Streamlit versions raise just from
+# checking `in st.secrets` — that's fine, .env already covers local runs.
+try:
+    for key in (
+        "GROQ_API_KEY",
+        "TAVILY_API_KEY",
+        "GROQ_FAST_MODEL",
+        "GROQ_REASON_MODEL",
+        "MAX_SUBQUESTIONS",
+        "SUPABASE_DB_HOST",
+        "SUPABASE_DB_PORT",
+        "SUPABASE_DB_NAME",
+        "SUPABASE_DB_USER",
+        "SUPABASE_DB_PASSWORD",
+    ):
+        if key in st.secrets and key not in os.environ:
+            os.environ[key] = str(st.secrets[key])
+except Exception:
+    pass  # no secrets.toml locally — fine, .env / os.environ already has it
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(name)s — %(message)s")
 log = logging.getLogger(__name__)
