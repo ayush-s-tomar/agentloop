@@ -11,7 +11,7 @@ services:
       - key: TAVILY_API_KEY
         sync: false
       - key: GROQ_REASON_MODEL
-        value: llama-3.1-8b-instant
+        value: openai/gpt-oss-120b
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: PYTHONDONTWRITEBYTECODE
