@@ -70,6 +70,7 @@ async def run_research(req: RunRequest):
                     payload["decision"] = snapshot.get("decision", "")
                 elif node_name == "synthesize":
                     payload["report"] = snapshot.get("final_report", "")
+                    payload["sources"] = snapshot.get("all_sources", [])
                 yield _sse("node", payload)
             yield _sse("done", {})
         except Exception as exc:

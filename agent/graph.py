@@ -38,7 +38,7 @@ from tracer.db import log_eval_score
 
 log = logging.getLogger(__name__)
 
-# Cap on sub-questions per run — bounds worst-case memory regardless of topic
+# Cap on sub-questions per run â€” bounds worst-case memory regardless of topic
 # complexity. Overridable via env var, same as MAX_SUBQUESTIONS in planner.
 MAX_REFLECT_ADDITIONS = int(os.environ.get("MAX_REFLECT_ADDITIONS", "3"))
 
@@ -61,7 +61,7 @@ def recall_node(state: AgentState) -> dict:
             f"On {past['created_at']:.0f}, a similar topic (\"{past['topic']}\") "
             f"was researched. Prior summary:\n{past['report'][:1200]}"
         )
-        msg = f"Found related prior research: \"{past['topic']}\" — using it as background context."
+        msg = f"Found related prior research: \"{past['topic']}\" â€” using it as background context."
     else:
         context = None
         msg = "No related prior research found in long-term memory. Starting fresh."
@@ -89,7 +89,7 @@ def planner_node(state: AgentState) -> dict:
         if not questions:
             raise ValueError("LLM returned empty question list")
     except Exception as e:
-        log.error("Planner LLM failed (%s) — using fallback questions", e)
+        log.error("Planner LLM failed (%s) â€” using fallback questions", e)
         questions = [
             f"What is {topic} and why does it matter?",
             f"What are the key challenges and opportunities in {topic}?",
@@ -162,7 +162,7 @@ def reflect_node(state: AgentState) -> dict:
     if iterations >= max_iterations:
         return {
             "decision": "done",
-            "trace": _trace(state, "reflect", "Reached reflection cap — moving to synthesis."),
+            "trace": _trace(state, "reflect", "Reached reflection cap â€” moving to synthesis."),
             **llm.get_usage(),
         }
 
@@ -180,11 +180,11 @@ def reflect_node(state: AgentState) -> dict:
     if not needs_more or not additional:
         return {
             "decision": "done",
-            "trace": _trace(state, "reflect", "Notes judged sufficient — moving to synthesis."),
+            "trace": _trace(state, "reflect", "Notes judged sufficient â€” moving to synthesis."),
             **llm.get_usage(),
         }
 
-    msg = "Found gaps — adding follow-up questions: " + "; ".join(additional)
+    msg = "Found gaps â€” adding follow-up questions: " + "; ".join(additional)
     return {
         "decision": "more_research",
         "plan": additional,
@@ -218,8 +218,17 @@ def synthesize_node(state: AgentState) -> dict:
             f"**{n['question']}**\n{n['answer']}" for n in notes
         )
 
+    all_sources = []
+    seen = set()
+    for n in notes:
+        for url in n.get("sources", []):
+            if url not in seen:
+                seen.add(url)
+                all_sources.append(url)
+
     return {
         "final_report": report,
+        "all_sources": all_sources,
         "trace": _trace(state, "synthesize", "Final report written."),
         **llm.get_usage(),
     }
@@ -290,9 +299,9 @@ def run(topic: str):
                 yield node_name, snapshot
     finally:
         # Release this run's notes/sources/report before the worker picks up
-        # the next request — matters on Render's free 512MB instances.
+        # the next request â€” matters on Render's free 512MB instances.
         gc.collect()
 
-    # Placeholder eval score for now — swap in a real metric (e.g. report
+    # Placeholder eval score for now â€” swap in a real metric (e.g. report
     # length/quality check, LLM-as-judge, keyword coverage) once you have one.
     log_eval_score(run_id=run_id, agent_name="AgentLoop", score=0.8)
