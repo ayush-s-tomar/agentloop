@@ -9,11 +9,11 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 ![CI](https://github.com/ayush-s-tomar/agentloop/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Streamlit](https://img.shields.io/badge/deployed-Streamlit%20Cloud-FF4B4B?logo=streamlit&logoColor=white)
+![Render](https://img.shields.io/badge/deployed-Render-46E3B7?logo=render&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/agent-LangGraph-1C3C3C)
 ![Groq](https://img.shields.io/badge/LLM-Groq-F55036)
 
-🔗 **[Live Demo](https://agentloop.streamlit.app)** · 📦 **[Source](https://github.com/ayush-s-tomar/agentloop)**
+🔗 **[Live Demo](https://agentloop.onrender.com/)** · 📦 **[Source](https://github.com/ayush-s-tomar/agentloop)**
 
 ![AgentLoop hero](docs/agentloop_readme_hero.png)
 
@@ -28,6 +28,14 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 https://github.com/user-attachments/assets/15d46d67-dbfb-41ea-90f5-449ec98fd61f
 
 </details>
+
+---
+
+## Known limitations
+
+- **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see "What I'd add next."
+- **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
+- **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
 
 ---
 
@@ -61,11 +69,11 @@ START → recall → planner → research ←─────────┐
 | Layer | Technology |
 |-------|-----------|
 | Agent framework | LangGraph (StateGraph with conditional edges) |
-| LLM + tool-calling | Groq (`llama-3.1-8b-instant`, configurable) |
+| LLM + tool-calling | Groq (`openai/gpt-oss-20b` fast / `openai/gpt-oss-120b` reasoning, configurable) |
 | Web search tool | Tavily API |
 | UI | Streamlit |
 | Long-term memory | SQLite |
-| Deploy | Streamlit Community Cloud |
+| Deploy | Render |
 
 ---
 
@@ -106,7 +114,8 @@ mkdir -p .streamlit
 cat > .streamlit/secrets.toml << 'EOF'
 GROQ_API_KEY = "your_groq_api_key_here"
 TAVILY_API_KEY = "your_tavily_api_key_here"
-GROQ_REASON_MODEL = "llama-3.1-8b-instant"
+GROQ_REASON_MODEL = "openai/gpt-oss-120b"
+GROQ_FAST_MODEL = "openai/gpt-oss-20b"
 EOF
 
 # 5. Start the app
@@ -121,20 +130,24 @@ Free API keys (no credit card needed):
 
 ---
 
-## Deploy to Streamlit Community Cloud
+## Deploy to Render
 
 1. Fork/clone this repo and push to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io) → New app → connect repo
-3. Set main file path: `streamlit_app.py`
-4. In **Advanced settings → Secrets**, add:
-   ```toml
-   GROQ_API_KEY = "your_groq_api_key_here"
-   TAVILY_API_KEY = "your_tavily_api_key_here"
-   GROQ_REASON_MODEL = "llama-3.1-8b-instant"
+2. Go to [render.com](https://render.com) → New → Web Service → connect repo
+3. Set the start command to run the Streamlit app, e.g.:
+   ```bash
+   streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0
+   ```
+4. In **Environment**, add:
+   ```
+   GROQ_API_KEY = your_groq_api_key_here
+   TAVILY_API_KEY = your_tavily_api_key_here
+   GROQ_REASON_MODEL = openai/gpt-oss-120b
+   GROQ_FAST_MODEL = openai/gpt-oss-20b
    ```
 5. Deploy
 
-> **Note:** Streamlit Community Cloud has ephemeral storage — SQLite memory resets on redeploy/restart. For persistent memory across restarts, swap `memory/store.py` for a hosted DB (e.g. Supabase Postgres).
+> **Note:** Render's free tier has ephemeral storage and spins down on inactivity — SQLite memory resets on redeploy/restart, and the first request after idle may be slow. For persistent memory across restarts, swap `memory/store.py` for a hosted DB (e.g. Supabase Postgres).
 
 ---
 
@@ -166,25 +179,6 @@ Every claim above is sourced from a live web search during the run — the full 
 
 ---
 
-## Example output
-
-Real output from the demo run above — topic: *"How AI agents are changing software engineering jobs"*.
-
-> ### Overview
-> The integration of AI agents in software engineering is transforming the industry, with significant impacts on tasks, skill sets, and decision-making processes. AI agents are automating routine, structured tasks such as implementation, testing, and deployment, freeing developers to focus on creative aspects and high-level decision-making. However, this shift also poses potential challenges, including over-reliance on AI agents, quality control and validation issues, trust and reliability concerns, and the need for human oversight and auditing of AI-generated code.
->
-> ### Key Findings
-> - Tasks in software engineering most susceptible to automation by AI agents include implementation, testing, and deployment, as well as routine, structured tasks such as code generation, unit testing, and cloud infrastructure configuration.
-> - The impact of AI agents on software engineering jobs is significant, leading to a shift in the required skill sets — software engineers need to develop skills in AI strategy, full-stack engineering, large language model calling, and orchestration.
-> - Up to 30% of current software engineering tasks are automatable by 2030, but this automation is projected to lead to a net increase in employment for software engineers, with a 17.9% increase in employment from 2023 to 2033.
->
-> ### Conclusion
-> The integration of AI agents in software engineering is a significant trend that is transforming the industry. While AI agents are automating routine, structured tasks, freeing developers to focus on creative aspects and high-level decision-making, this shift also poses potential challenges, including over-reliance on AI agents, quality control and validation issues, trust and reliability concerns, and the need for human oversight and auditing of AI-generated code.
-
-Every claim above is sourced from a live web search during the run — the full report includes inline citations that the "Research" step gathered per sub-question.
-
----
-
 ## What I'd add next
 
 - Vector-based memory recall (pgvector / Chroma) instead of keyword overlap
@@ -192,3 +186,9 @@ Every claim above is sourced from a live web search during the run — the full 
 - Token-level streaming within each node for fully real-time output
 - Eval harness with LLM-as-judge rubric to catch prompt regressions
 - Persistent (non-ephemeral) memory backend for the hosted deployment
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
