@@ -35,13 +35,13 @@ def get_usage() -> dict:
 
 
 # ---------- model aliases ----------
-FAST_MODEL   = os.environ.get("GROQ_FAST_MODEL", "openai/gpt-oss-20b")   # high TPM limit on free tier â€” use for research loops
-REASON_MODEL = os.environ.get("GROQ_REASON_MODEL", "openai/gpt-oss-120b")  # smarter â€” use for plan / reflect / synthesise
+FAST_MODEL   = os.environ.get("GROQ_FAST_MODEL", "openai/gpt-oss-20b")   # high TPM limit on free tier Ã¢â‚¬â€ use for research loops
+REASON_MODEL = os.environ.get("GROQ_REASON_MODEL", "openai/gpt-oss-120b")  # smarter Ã¢â‚¬â€ use for plan / reflect / synthesise
 # NOTE: previously hardcoded to "llama3-70b-8192", which Groq has decommissioned.
 # Every call using REASON_MODEL was silently failing and falling into fallback
 # paths in graph.py (planner_node, reflect_node, synthesize_node).
 # If you want a genuinely larger model again, check Groq's current model list
-# and set GROQ_REASON_MODEL in your .env â€” do not hardcode it here.
+# and set GROQ_REASON_MODEL in your .env Ã¢â‚¬â€ do not hardcode it here.
 
 MAX_RETRIES    = 6
 BASE_DELAY_SEC = 1.5  # minimum wait between retries
@@ -91,7 +91,7 @@ def _call(
                 pass
             wait = max(retry_after or delay, delay)
             log.warning(
-                "Rate-limited (attempt %d/%d). Waiting %.1fs â€¦",
+                "Rate-limited (attempt %d/%d). Waiting %.1fs Ã¢â‚¬Â¦",
                 attempt, MAX_RETRIES, wait,
             )
             if attempt == MAX_RETRIES:
@@ -101,7 +101,7 @@ def _call(
 
         except APIStatusError as exc:
             if exc.status_code in (500, 502, 503, 504) and attempt < MAX_RETRIES:
-                log.warning("Groq %d error, retrying in %.1fs â€¦", exc.status_code, delay)
+                log.warning("Groq %d error, retrying in %.1fs Ã¢â‚¬Â¦", exc.status_code, delay)
                 time.sleep(delay)
                 delay = min(delay * 2, MAX_DELAY_SEC)
             else:
@@ -122,7 +122,7 @@ def _strip_fences(text: str) -> str:
 def complete(system: str, user: str, json_mode: bool = False) -> str:
     """
     General-purpose LLM call. Uses REASON_MODEL.
-    Set json_mode=True when you expect a JSON response â€” strips fences automatically.
+    Set json_mode=True when you expect a JSON response Ã¢â‚¬â€ strips fences automatically.
     """
     raw = _call(
         messages=[
@@ -136,7 +136,7 @@ def complete(system: str, user: str, json_mode: bool = False) -> str:
 
 
 def plan(topic: str, prior_notes: list[str]) -> list[str]:
-    """Return 3â€“4 sub-questions to research."""
+    """Return 3Ã¢â‚¬â€œ4 sub-questions to research."""
     prior = "\n".join(prior_notes) if prior_notes else "None"
     content = _call(
         messages=[
@@ -145,7 +145,7 @@ def plan(topic: str, prior_notes: list[str]) -> list[str]:
                 "content": (
                     "You are a research planner. Given a topic and any prior notes, "
                     "return ONLY a JSON array of 3-4 focused sub-questions (strings). "
-                    "No markdown, no preamble â€” raw JSON array only."
+                    "No markdown, no preamble Ã¢â‚¬â€ raw JSON array only."
                 ),
             },
             {"role": "user", "content": f"Topic: {topic}\n\nPrior notes:\n{prior}"},
@@ -185,7 +185,7 @@ def should_search(question: str) -> bool:
                     "Say YES if the question could involve any current, "
                     "recent, time-sensitive, or frequently-changing "
                     "information (prices, versions, dates, news, statuses, "
-                    "rankings, availability, etc.) â€” when in doubt, say YES.\n"
+                    "rankings, availability, etc.) Ã¢â‚¬â€ when in doubt, say YES.\n"
                     "Say NO only for timeless facts, definitions, or "
                     "concepts that don't change over time."
                 ),
@@ -206,7 +206,7 @@ def answer_from_context(question: str, search_results: str) -> str:
                 "role": "system",
                 "content": (
                     "You are a research assistant. Using ONLY the provided search results, "
-                    "write a concise 2-4 sentence answer. Cite no sources by URL â€” just facts."
+                    "write a concise 2-4 sentence answer. Cite no sources by URL Ã¢â‚¬â€ just facts."
                 ),
             },
             {
@@ -287,6 +287,6 @@ def synthesise(topic: str, notes: list[str]) -> str:
             },
         ],
         model=REASON_MODEL,
-        max_tokens=900,
+        max_tokens=1600,
         temperature=0.4,
     )

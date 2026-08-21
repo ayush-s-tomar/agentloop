@@ -155,6 +155,7 @@
   .report-body h2{font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--accent);margin-top:24px;}
   .report-body h2:first-child{margin-top:0;}
   .report-body ul{padding-left:20px;}
+  .report-body hr{border:none;border-top:1px solid var(--panel-border);margin:20px 0;}
   .download-btn{
     margin-top:18px;background:transparent;border:1px solid var(--accent);
     color:var(--accent);padding:10px 20px;border-radius:9px;font-family:inherit;
@@ -232,21 +233,30 @@ document.querySelectorAll(".chip").forEach(function(chip){
   };
 });
 
+function inlineMd(text){
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/(?<!\*)\*(?!\*)(.+?)\*(?!\*)/g, "<em>$1</em>");
+  return text;
+}
+
 function mdToHtml(md){
   const lines = md.split("\n");
   let html = "", inList = false;
   for(const line of lines){
     if(line.startsWith("## ")){
       if(inList){html+="</ul>";inList=false;}
-      html += "<h2>" + line.slice(3) + "</h2>";
+      html += "<h2>" + inlineMd(line.slice(3)) + "</h2>";
     } else if(line.startsWith("- ")){
       if(!inList){html+="<ul>";inList=true;}
-      html += "<li>" + line.slice(2) + "</li>";
+      html += "<li>" + inlineMd(line.slice(2)) + "</li>";
     } else if(line.trim()===""){
       if(inList){html+="</ul>";inList=false;}
+    } else if(line.trim()==="---"){
+      if(inList){html+="</ul>";inList=false;}
+      html += "<hr>";
     } else {
       if(inList){html+="</ul>";inList=false;}
-      html += "<p>" + line + "</p>";
+      html += "<p>" + inlineMd(line) + "</p>";
     }
   }
   if(inList) html+="</ul>";
