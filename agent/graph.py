@@ -21,6 +21,7 @@ The agent's control flow, built as a LangGraph StateGraph.
      END
 """
 
+import gc
 import json
 import logging
 import os
@@ -36,6 +37,10 @@ from tracer.trace import traced, set_run_context
 from tracer.db import log_eval_score
 
 log = logging.getLogger(__name__)
+
+# Cap on sub-questions per run — bounds worst-case memory regardless of topic
+# complexity. Overridable via env var, same as MAX_SUBQUESTIONS in planner.
+MAX_REFLECT_ADDITIONS = int(os.environ.get("MAX_REFLECT_ADDITIONS", "3"))
 
 
 def _trace(state: AgentState, node: str, message: str) -> List[dict]:
@@ -167,7 +172,7 @@ def reflect_node(state: AgentState) -> dict:
     try:
         needs_more, additional = llm.reflect(state["topic"], notes_list)
         # llm.reflect() returns (bool, list[str])
-        additional = [q.strip() for q in additional if q.strip()]
+        additional = [q.strip() for q in additional if q.strip()][:MAX_REFLECT_ADDITIONS]
     except Exception as e:
         log.error("Reflect node failed: %s", e)
         needs_more, additional = False, []
@@ -279,9 +284,14 @@ def run(topic: str):
         "final_report":           "",
         "trace":                  [],
     }
-    for event in graph.stream(init):
-        for node_name, snapshot in event.items():
-            yield node_name, snapshot
+    try:
+        for event in graph.stream(init):
+            for node_name, snapshot in event.items():
+                yield node_name, snapshot
+    finally:
+        # Release this run's notes/sources/report before the worker picks up
+        # the next request — matters on Render's free 512MB instances.
+        gc.collect()
 
     # Placeholder eval score for now — swap in a real metric (e.g. report
     # length/quality check, LLM-as-judge, keyword coverage) once you have one.
