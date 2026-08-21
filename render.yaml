@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: agentloop
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.maxUploadSize 5 --server.enableXsrfProtection false --browser.gatherUsageStats false --server.runOnSave false
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: GROQ_REASON_MODEL
+        value: llama-3.1-8b-instant
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: MALLOC_ARENA_MAX
+        value: "2"
