@@ -1,4 +1,4 @@
-# AgentLoop
+﻿# AgentLoop
 
 **A multi-step research agent with tool-use and memory.**
 
@@ -81,7 +81,7 @@ START → recall → planner → research ←─────────┐
 
 ```
 agentloop/
-├── streamlit_app.py     Streamlit UI — input, live trace, report, session history
+├── main.py               FastAPI app — /api/run (SSE stream), /api/sessions, serves static/
 ├── agent/
 │   ├── state.py         AgentState schema shared across all graph nodes
 │   ├── graph.py         LangGraph StateGraph: nodes + conditional routing
@@ -89,6 +89,8 @@ agentloop/
 │   └── tools.py         web_search tool (Tavily) + OpenAI-compatible schema
 ├── memory/
 │   └── store.py         SQLite long-term memory (save, recall, clear past sessions)
+├── static/
+│   └── index.html      Frontend — input, live trace, report renderer, session history
 ├── requirements.txt
 └── .env.example
 ```
@@ -110,18 +112,8 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 4. Add your API keys
-mkdir -p .streamlit
-cat > .streamlit/secrets.toml << 'EOF'
-GROQ_API_KEY = "your_groq_api_key_here"
-TAVILY_API_KEY = "your_tavily_api_key_here"
-GROQ_REASON_MODEL = "openai/gpt-oss-120b"
-GROQ_FAST_MODEL = "openai/gpt-oss-20b"
-EOF
 
-# 5. Start the app
-streamlit run streamlit_app.py
-
-# 6. Open http://localhost:8501
+# 6. Open http://localhost:8000
 ```
 
 Free API keys (no credit card needed):
@@ -134,9 +126,9 @@ Free API keys (no credit card needed):
 
 1. Fork/clone this repo and push to GitHub
 2. Go to [render.com](https://render.com) → New → Web Service → connect repo
-3. Set the start command to run the Streamlit app, e.g.:
+3. Set the start command to run the FastAPI app, e.g.:
    ```bash
-   streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0
+   uvicorn main:app --host 0.0.0.0 --port $PORT
    ```
 4. In **Environment**, add:
    ```
