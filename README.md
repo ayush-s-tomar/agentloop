@@ -17,6 +17,10 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 
 ![AgentLoop hero](docs/agentloop_readme_hero.png)
 
+**Report output:**
+
+![AgentLoop demo screenshot - rendered research report](docs/agentloop_demo_screenshot.png)
+
 **See it run:**
 
 ![AgentLoop demo — input to sourced report](docs/agentloop_demo.gif)
