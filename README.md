@@ -122,7 +122,6 @@ cp .env.example .env
 # 5. Start the app
 uvicorn main:app --reload
 
-
 # 6. Open http://localhost:8000
 ```
 
