@@ -25,7 +25,7 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 <summary><strong>▶ Watch the full demo video (with narrated pipeline steps)</strong></summary>
 <br>
 
-https://github.com/user-attachments/assets/15d46d67-dbfb-41ea-90f5-449ec98fd61f
+https://github.com/user-attachments/assets/f8e0bd8c-a485-493b-89b4-2ca57ce30db5
 
 </details>
 
