@@ -71,7 +71,7 @@ START → recall → planner → research ←─────────┐
 | Agent framework | LangGraph (StateGraph with conditional edges) |
 | LLM + tool-calling | Groq (`openai/gpt-oss-20b` fast / `openai/gpt-oss-120b` reasoning, configurable) |
 | Web search tool | Tavily API |
-| UI | Streamlit |
+| UI | Static HTML/CSS/JS (server-sent events for live progress) |
 | Long-term memory | SQLite |
 | Deploy | Render |
 
