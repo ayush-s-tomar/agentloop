@@ -156,6 +156,9 @@
   .report-body h2:first-child{margin-top:0;}
   .report-body ul{padding-left:20px;}
   .report-body hr{border:none;border-top:1px solid var(--panel-border);margin:20px 0;}
+  .report-body table{width:100%;border-collapse:collapse;margin:16px 0;font-size:12.5px;}
+  .report-body th,.report-body td{border:1px solid var(--panel-border);padding:8px 12px;text-align:left;}
+  .report-body th{color:var(--accent);font-family:'Space Grotesk',sans-serif;font-weight:600;background:rgba(94,234,212,0.04);}
   .sources-box{
     background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
     padding:18px 24px;margin-top:14px;font-size:12.5px;
@@ -259,17 +262,54 @@ function inlineMd(text){
 
 function mdToHtml(md){
   const lines = md.split("\n");
-  let html = "", inList = false;
+  let html = "", inList = false, tableBuffer = [];
+
+  function flushTable(){
+    if(tableBuffer.length < 2) { tableBuffer = []; return; }
+    const headerCells = tableBuffer[0].split("|").map(s=>s.trim()).filter(s=>s.length);
+    const bodyRows = tableBuffer.slice(2).map(row =>
+      row.split("|").map(s=>s.trim()).filter(s=>s.length)
+    );
+    let t = "<table><thead><tr>";
+    headerCells.forEach(c => t += "<th>" + inlineMd(c) + "</th>");
+    t += "</tr></thead><tbody>";
+    bodyRows.forEach(row => {
+      t += "<tr>";
+      row.forEach(c => t += "<td>" + inlineMd(c) + "</td>");
+      t += "</tr>";
+    });
+    t += "</tbody></table>";
+    html += t;
+    tableBuffer = [];
+  }
+
   for(const line of lines){
-    if(line.startsWith("## ")){
+    const trimmed = line.trim();
+    const isTableRow = trimmed.startsWith("|") && trimmed.endsWith("|");
+
+    if(isTableRow){
+      if(inList){html+="</ul>";inList=false;}
+      tableBuffer.push(trimmed);
+      continue;
+    } else if(tableBuffer.length){
+      flushTable();
+    }
+
+    if(line.startsWith("### ")){
+      if(inList){html+="</ul>";inList=false;}
+      html += "<h3>" + inlineMd(line.slice(4)) + "</h3>";
+    } else if(line.startsWith("## ")){
       if(inList){html+="</ul>";inList=false;}
       html += "<h2>" + inlineMd(line.slice(3)) + "</h2>";
+    } else if(line.startsWith("# ")){
+      if(inList){html+="</ul>";inList=false;}
+      html += "<h2>" + inlineMd(line.slice(2)) + "</h2>";
     } else if(line.startsWith("- ")){
       if(!inList){html+="<ul>";inList=true;}
       html += "<li>" + inlineMd(line.slice(2)) + "</li>";
-    } else if(line.trim()===""){
+    } else if(trimmed===""){
       if(inList){html+="</ul>";inList=false;}
-    } else if(line.trim()==="---"){
+    } else if(trimmed==="---"){
       if(inList){html+="</ul>";inList=false;}
       html += "<hr>";
     } else {
@@ -278,6 +318,7 @@ function mdToHtml(md){
     }
   }
   if(inList) html+="</ul>";
+  if(tableBuffer.length) flushTable();
   return html;
 }
 
