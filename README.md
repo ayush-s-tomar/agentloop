@@ -112,6 +112,16 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 4. Add your API keys
+cp .env.example .env
+# then edit .env and set:
+# GROQ_API_KEY=your_groq_api_key_here
+# TAVILY_API_KEY=your_tavily_api_key_here
+# GROQ_REASON_MODEL=openai/gpt-oss-120b
+# GROQ_FAST_MODEL=openai/gpt-oss-20b
+
+# 5. Start the app
+uvicorn main:app --reload
+
 
 # 6. Open http://localhost:8000
 ```
