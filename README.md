@@ -1,4 +1,4 @@
-﻿# AgentLoop
+# AgentLoop
 
 **A multi-step research agent with tool-use and memory.**
 
@@ -6,7 +6,7 @@ Most AI projects are input → output. AgentLoop is different — it plans, sear
 
 **Plans → Searches → Reflects → Sourced report**
 
-![CI](https://github.com/ayush-s-tomar/agentloop/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/ayush-s-tomar/agentloop/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush-s-tomar/agentloop/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Render](https://img.shields.io/badge/deployed-Render-46E3B7?logo=render&logoColor=white)
@@ -35,11 +35,9 @@ https://github.com/user-attachments/assets/f8e0bd8c-a485-493b-89b4-2ca57ce30db5
 
 ---
 
-## Known limitations
+## 📚 Contents
 
-- **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see "What I'd add next."
-- **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
-- **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
+[What It Does](#what-it-does) · [Stack](#stack) · [Project Structure](#project-structure) · [Run Locally](#run-locally) · [Deploy to Render](#deploy-to-render) · [What Makes This Agentic](#what-makes-this-agentic) · [Example Output](#example-output) · [Known Limitations](#known-limitations) · [What I'd Add Next](#what-id-add-next) · [License](#license)
 
 ---
 
@@ -184,6 +182,14 @@ Every claim above is sourced from a live web search during the run — the full 
 
 ---
 
+## Known limitations
+
+- **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
+- **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
+- **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
+
+---
+
 ## What I'd add next
 
 - Vector-based memory recall (pgvector / Chroma) instead of keyword overlap
@@ -197,3 +203,8 @@ Every claim above is sourced from a live web search during the run — the full 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Built by **[Ayush Singh Tomar](https://github.com/ayush-s-tomar)**
+[LinkedIn](https://www.linkedin.com/in/ayushsinghtomar) · [Portfolio](https://ayush-s-tomar.vercel.app)
