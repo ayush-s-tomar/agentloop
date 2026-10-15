@@ -178,7 +178,7 @@ Real output from the demo run above — topic: *"How AI agents are changing soft
 > ### Conclusion
 > The integration of AI agents in software engineering is a significant trend that is transforming the industry. While AI agents are automating routine, structured tasks, freeing developers to focus on creative aspects and high-level decision-making, this shift also poses potential challenges, including over-reliance on AI agents, quality control and validation issues, trust and reliability concerns, and the need for human oversight and auditing of AI-generated code.
 
-Every claim above is sourced from a live web search during the run — the full report includes inline citations that the "Research" step gathered per sub-question.
+Every claim above traces to a page the agent retrieved from a live web search during the run, and the full report includes inline citations that the "Research" step gathered per sub-question. The agent cites what the web returns; it does not vet it. The 17.9% employment figure matches the BLS published projection for software developers (2023–33). The "30% of tasks automatable by 2030" figure comes from secondary sources and echoes McKinsey's estimate that up to 30% of hours worked across the whole US economy could be automated, not software engineering specifically. Treat generated statistics as leads to verify, not facts.
 
 ---
 
@@ -187,6 +187,7 @@ Every claim above is sourced from a live web search during the run — the full 
 - **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
 - **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
 - **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
+- **No source-quality filtering** — the pipeline has no source-credibility step, so the agent can cite a secondary blog as readily as a primary source, and a statistic can be re-scoped in transit (see the 30% figure in [Example output](#example-output)).
 
 ---
 
@@ -197,6 +198,7 @@ Every claim above is sourced from a live web search during the run — the full 
 - Token-level streaming within each node for fully real-time output
 - Eval harness with LLM-as-judge rubric to catch prompt regressions
 - Persistent (non-ephemeral) memory backend for the hosted deployment
+- Source-credibility ranking before the agent reads results (domain trust scoring, as [StartupScope](https://github.com/ayush-s-tomar/startupscope) does), so primary sources like BLS outrank secondary blogs
 
 ---
 
