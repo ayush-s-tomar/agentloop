@@ -91,8 +91,15 @@ agentloop/
 │   └── tools.py         web_search tool (Tavily) + OpenAI-compatible schema
 ├── memory/
 │   └── store.py         SQLite long-term memory (save, recall, clear past sessions)
+├── tracer/
+│   ├── trace.py         @traced decorator: latency, tokens, estimated cost per node
+│   └── db.py            Optional Postgres (Supabase) trace storage; no-op when unset
 ├── static/
 │   └── index.html      Frontend — input, live trace, report renderer, session history
+├── docs/                README images and demo GIF
+├── .github/workflows/
+│   └── ci.yml           Lint (errors only) + import smoke test
+├── render.yaml          Render Blueprint
 ├── requirements.txt
 └── .env.example
 ```
@@ -135,6 +142,8 @@ Free API keys (no credit card needed):
 
 ## Deploy to Render
 
+This repo includes a `render.yaml` Blueprint (Render dashboard > New > Blueprint) that sets the build and start commands. Add the two API keys when prompted. To set it up by hand instead:
+
 1. Fork/clone this repo and push to GitHub
 2. Go to [render.com](https://render.com) → New → Web Service → connect repo
 3. Set the start command to run the FastAPI app, e.g.:
@@ -151,6 +160,20 @@ Free API keys (no credit card needed):
 5. Deploy
 
 > **Note:** Render's free tier has ephemeral storage and spins down on inactivity — SQLite memory resets on redeploy/restart, and the first request after idle may be slow. For persistent memory across restarts, swap `memory/store.py` for a hosted DB (e.g. Supabase Postgres).
+
+---
+
+## Abuse and cost controls
+
+The public demo spends real API quota, so `/api/run` rejects topics over 200 characters and allows 5 runs per IP per hour (`RATE_LIMIT_RUNS`). The limiter is in-memory, so it resets on restart and is per instance, and a determined client can evade it by spoofing proxy headers. It is a guard against casual abuse, not a security boundary. CORS is open (`*`) because the API has no cookies or auth. Sessions are not access-controlled (see Known limitations).
+
+## Tracing (optional)
+
+The planner, research, reflect and synthesize nodes are wrapped in `@traced`, which records latency, token counts and an estimated cost per step to Postgres. It turns on only when `SUPABASE_DB_HOST`, `SUPABASE_DB_USER` and `SUPABASE_DB_PASSWORD` are set; otherwise every call is a no-op, so a missing database never breaks a run. `render.yaml` does not enable it. Cost figures are estimates from a small rate table in `tracer/trace.py` that predates the gpt-oss models, so treat them as approximate.
+
+## CI
+
+GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. There are no unit tests, so a green badge means the project imports cleanly, not that the agent is correct.
 
 ---
 
@@ -186,6 +209,7 @@ Every claim above traces to a page the agent retrieved from a live web search du
 
 - **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
 - **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
+- **Shared, unauthenticated history** - long-term memory and the session list are global, not per user. Any visitor can see recent topics, and "Clear history" deletes them for everyone. Fine for a demo; do not use it with private data.
 - **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
 - **No source-quality filtering** — the pipeline has no source-credibility step, so the agent can cite a secondary blog as readily as a primary source, and a statistic can be re-scoped in transit (see the 30% figure in [Example output](#example-output)).
 

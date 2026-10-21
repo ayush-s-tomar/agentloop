@@ -17,6 +17,9 @@ Deploy:
 
 import json
 import logging
+import os
+import time
+from collections import defaultdict, deque
 
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
@@ -29,6 +32,28 @@ from memory import store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(name)s -- %(message)s")
 log = logging.getLogger(__name__)
+
+MAX_TOPIC_CHARS = 200
+RATE_LIMIT_RUNS = int(os.environ.get("RATE_LIMIT_RUNS", "5"))
+RATE_WINDOW_S = 3600
+_recent_runs = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for")
+    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "unknown")
+
+
+def _rate_limited(ip: str) -> bool:
+    now = time.time()
+    q = _recent_runs[ip]
+    while q and now - q[0] > RATE_WINDOW_S:
+        q.popleft()
+    if len(q) >= RATE_LIMIT_RUNS:
+        return True
+    q.append(now)
+    return False
+
 
 store.init_db()
 
@@ -50,12 +75,18 @@ def _sse(event: str, data: dict) -> str:
 
 
 @app.post("/api/run")
-async def run_research(req: RunRequest):
+async def run_research(req: RunRequest, request: Request):
     topic = (req.topic or "").strip()
 
     async def stream():
         if not topic:
             yield _sse("error", {"message": "Topic cannot be empty."})
+            return
+        if len(topic) > MAX_TOPIC_CHARS:
+            yield _sse("error", {"message": f"Topic is too long (max {MAX_TOPIC_CHARS} characters)."})
+            return
+        if _rate_limited(_client_ip(request)):
+            yield _sse("error", {"message": "Rate limit reached for this demo. Please try again later."})
             return
         try:
             for node_name, snapshot in agent_run(topic):

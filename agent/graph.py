@@ -34,7 +34,6 @@ from agent.state import AgentState
 from agent import llm, tools
 from memory import store
 from tracer.trace import traced, set_run_context
-from tracer.db import log_eval_score
 
 log = logging.getLogger(__name__)
 
@@ -278,7 +277,7 @@ graph = build_graph()
 
 def run(topic: str):
     """Generator that yields (node_name, snapshot) as each node finishes."""
-    run_id = set_run_context(agent_name="AgentLoop")
+    set_run_context(agent_name="AgentLoop")
 
     init: AgentState = {
         "session_id":             str(uuid.uuid4()),
@@ -301,7 +300,3 @@ def run(topic: str):
         # Release this run's notes/sources/report before the worker picks up
         # the next request â€” matters on Render's free 512MB instances.
         gc.collect()
-
-    # Placeholder eval score for now â€” swap in a real metric (e.g. report
-    # length/quality check, LLM-as-judge, keyword coverage) once you have one.
-    log_eval_score(run_id=run_id, agent_name="AgentLoop", score=0.8)
