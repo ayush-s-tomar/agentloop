@@ -51,7 +51,7 @@
     display:block;width:100%;text-align:left;
     background:transparent;border:1px solid var(--panel-border);
     color:var(--text);padding:11px 13px;border-radius:8px;
-    font-family:inherit;font-size:12.5px;margin-bottom:8px;cursor:pointer;
+    font-family:inherit;font-size:12.5px;margin-bottom:8px;cursor:pointer;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     transition:border-color .15s,background .15s;
   }
   .session-item:hover{border-color:var(--accent);background:rgba(94,234,212,0.04);}
@@ -143,14 +143,14 @@
   .step.done::before{background:var(--accent);}
   .step.active{color:var(--accent);}
   .step.active::before{background:var(--accent);box-shadow:0 0 0 4px var(--accent-dim);}
-  .step-detail{font-size:11.5px;color:var(--text-dim);margin-top:3px;font-style:italic;}
+  .step-detail{font-size:11.5px;color:var(--text-dim);margin-top:3px;font-style:italic;white-space:pre-line;}
 
   .report{display:none;}
   .report.visible{display:block;}
   .report h3{font-family:'Space Grotesk',sans-serif;font-size:20px;margin-bottom:16px;}
   .report-body{
     background:var(--panel);border:1px solid var(--panel-border);border-radius:var(--radius);
-    padding:26px 30px;font-size:13.5px;line-height:1.75;
+    padding:26px 30px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:15px;line-height:1.7;
   }
   .report-body h2{font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--accent);margin-top:24px;}
   .report-body h2:first-child{margin-top:0;}
@@ -182,6 +182,9 @@
     color:var(--err);padding:13px 17px;border-radius:9px;font-size:13px;margin-bottom:20px;
   }
   .error-box.visible{display:block;}
+  .disclaimer{font-size:11.5px;color:var(--text-dim);margin:10px 2px 0 2px;line-height:1.6;}
+  .counter{font-size:11px;color:var(--text-dim);text-align:right;margin:-8px 2px 12px 0;}
+  .counter.over{color:var(--err);}
 </style>
 </head>
 <body>
@@ -211,9 +214,10 @@
     <div class="error-box" id="errorBox"></div>
 
     <div class="input-row">
-      <input id="topic" type="text" maxlength="300" placeholder="e.g. impact of the EU AI Act on startups" />
+      <input id="topic" type="text" maxlength="200" placeholder="e.g. impact of the EU AI Act on startups" />
       <button id="runBtn">Run</button>
     </div>
+    <div class="counter" id="counter">0/200</div>
     <div class="chips">
       <button class="chip" data-topic="Impact of AI agents on software engineering jobs">AI agents & jobs</button>
       <button class="chip" data-topic="Current state of solid-state EV batteries">EV batteries</button>
@@ -232,6 +236,7 @@
     <div class="report" id="reportBox">
       <h3 id="reportTitle">Report</h3>
       <div class="report-body" id="reportBody"></div>
+      <div class="disclaimer">AI-generated from web search snippets. Verify figures against the sources below.</div>
       <div class="sources-box" id="sourcesBox" style="display:none;">
         <h4>Sources</h4>
         <ul id="sourcesList"></ul>
@@ -246,6 +251,18 @@ const NODE_ORDER = ["recall","planner","research","reflect","synthesize","persis
 let currentReportRaw = "";
 let currentTopic = "";
 let currentSources = [];
+
+(function(){
+  const input = document.getElementById("topic");
+  const counter = document.getElementById("counter");
+  function update(){
+    counter.textContent = input.value.length + "/200";
+    counter.classList.toggle("over", input.value.length >= 200);
+  }
+  input.addEventListener("input", update);
+  document.querySelectorAll(".chip").forEach(function(c){ c.addEventListener("click", function(){ setTimeout(update, 0); }); });
+  update();
+})();
 
 document.querySelectorAll(".chip").forEach(function(chip){
   chip.onclick = function(){
@@ -322,7 +339,9 @@ function mdToHtml(md){
   return html;
 }
 
+var researchLines = [];
 function resetLoop(){
+  researchLines = [];
   document.querySelectorAll(".step").forEach(function(s){
     s.classList.remove("done","active");
     s.querySelector(".step-detail").textContent = "";
@@ -364,13 +383,20 @@ function loadSessions(){
     sessions.forEach(function(s){
       const btn = document.createElement("button");
       btn.className = "session-item";
-      btn.textContent = (s.topic || "(untitled)").slice(0,60);
+      btn.textContent = s.topic || "(untitled)";
+      btn.title = s.topic || "";
       btn.onclick = function(){
         fetch("/api/sessions/" + s.id).then(function(r){return r.json();}).then(function(full){
           if(full && full.report){
             currentReportRaw = full.report;
             currentTopic = full.topic;
-            showReport(full.topic, full.report);
+            var srcs = full.sources || [];
+            if(!srcs.length && Array.isArray(full.notes)){
+              full.notes.forEach(function(n){
+                (n.sources || []).forEach(function(u){ if(srcs.indexOf(u) < 0) srcs.push(u); });
+              });
+            }
+            showReport(full.topic, full.report, srcs);
           }
         });
       };
@@ -459,7 +485,8 @@ document.getElementById("runBtn").onclick = function(){
               setDetail("planner", payload.plan.join(" | "));
             }
             if(payload.node === "research" && payload.message){
-              setDetail("research", payload.message);
+              researchLines.push(payload.message.replace(/^Researching \((web|knowledge|failed)\):\s*/, ""));
+              setDetail("research", researchLines.map(function(q, i){ return (i + 1) + ". " + q; }).join("\n"));
             }
             if(payload.node === "reflect"){
               setDetail("reflect", payload.decision === "more_research" ? "Found gaps -- researching more" : "Notes sufficient");
