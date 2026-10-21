@@ -96,9 +96,10 @@ agentloop/
 │   └── db.py            Optional Postgres (Supabase) trace storage; no-op when unset
 ├── static/
 │   └── index.html      Frontend — input, live trace, report renderer, session history
+├── tests/               Unit tests (routing, JSON parsing; no network)
 ├── docs/                README images and demo GIF
 ├── .github/workflows/
-│   └── ci.yml           Lint (errors only) + import smoke test
+│   └── ci.yml           Lint (errors only), pytest, import smoke test
 ├── render.yaml          Render Blueprint
 ├── requirements.txt
 └── .env.example
@@ -169,11 +170,11 @@ The public demo spends real API quota, so `/api/run` rejects topics over 200 cha
 
 ## Tracing (optional)
 
-The planner, research, reflect and synthesize nodes are wrapped in `@traced`, which records latency, token counts and an estimated cost per step to Postgres. It turns on only when `SUPABASE_DB_HOST`, `SUPABASE_DB_USER` and `SUPABASE_DB_PASSWORD` are set; otherwise every call is a no-op, so a missing database never breaks a run. `render.yaml` does not enable it. Cost figures are estimates from a small rate table in `tracer/trace.py` that predates the gpt-oss models, so treat them as approximate.
+The planner, research, reflect and synthesize nodes are wrapped in `@traced`, which records latency, token counts and an estimated cost per step to Postgres. It turns on only when `SUPABASE_DB_HOST`, `SUPABASE_DB_USER` and `SUPABASE_DB_PASSWORD` are set; otherwise every call is a no-op, so a missing database never breaks a run. `render.yaml` does not enable it; the hosted demo enables it through dashboard environment variables. Cost figures are estimates from a small rate table in `tracer/trace.py` that predates the gpt-oss models, so treat them as approximate.
 
 ## CI
 
-GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. There are no unit tests, so a green badge means the project imports cleanly, not that the agent is correct.
+GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. It also runs a small pytest suite (about a dozen tests, no network calls, LLM stubbed) covering the graph routing functions and the LLM wrapper parsing and search-decision logic. It does not test answer quality.
 
 ---
 

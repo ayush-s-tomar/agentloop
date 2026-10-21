@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -24,6 +24,11 @@ jobs:
         run: |
           pip install ruff
           ruff check . --select=E9,F821
+
+      - name: Unit tests
+        run: |
+          pip install pytest
+          python -m pytest -q
 
       - name: Import smoke test
         run: |
