@@ -189,6 +189,28 @@
   .disclaimer{font-size:11.5px;color:var(--text-dim);margin:10px 2px 0 2px;line-height:1.6;}
   .counter{font-size:11px;color:var(--text-dim);text-align:right;margin:-8px 2px 12px 0;}
   .counter.over{color:var(--err);}
+  .note{color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;}
+  .src-toggle{
+    margin-top:10px;background:transparent;border:1px solid var(--panel-border);
+    color:var(--accent);padding:6px 12px;border-radius:8px;font-family:inherit;
+    font-size:12px;cursor:pointer;
+  }
+  .src-toggle:hover{border-color:var(--accent);}
+  @media (max-width:800px){
+    .sidebar{padding:20px 16px;border-right:none;border-bottom:1px solid var(--panel-border);}
+    .tagline,.note{margin-left:0;}
+    main{min-height:0;}
+    .input-row{flex-wrap:wrap;}
+    #topic{min-width:0;flex:1 1 100%;}
+    #runBtn{width:100%;padding:12px 28px;}
+    .report-body{padding:18px;}
+    .report-body table{display:block;overflow-x:auto;}
+    .download-btn{margin-bottom:8px;}
+  }
+  @media print{
+    .sources-box li{display:list-item !important;}
+    .src-toggle{display:none !important;}
+  }
   @media print{
     .sidebar,.input-row,.counter,.chips,.loop,.download-btn,.error-box,#runMeta{display:none !important;}
     .layout{display:block;}
@@ -221,7 +243,7 @@
       <h1>AgentLoop</h1>
     </div>
     <p class="tagline">A multi-step research agent that plans, searches, reflects, and writes a sourced report.</p>
-    <p style="color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;">Hosted on a free tier -- first load after idle can take up to a minute to spin up.</p>
+    <p class="note">Hosted on a free tier -- first load after idle can take up to a minute to spin up.</p>
 
     <div class="error-box" id="errorBox"></div>
 
@@ -236,6 +258,7 @@
       <button class="chip" data-topic="How the EU AI Act affects startups">EU AI Act</button>
     </div>
 
+    <div class="disclaimer" id="emptyHint" style="margin:-24px 0 24px 2px;">Pick a topic chip above, then press Run. A full run takes about a minute.</div>
     <div class="loop" id="loop">
       <div class="step" data-node="recall">Checking memory<div class="step-detail" data-detail="recall"></div></div>
       <div class="step" data-node="planner">Planning sub-questions<div class="step-detail" data-detail="planner"></div></div>
@@ -441,10 +464,28 @@ function showReport(topic, report, sources){
       sourcesList.appendChild(li);
     });
     sourcesBox.style.display = "block";
+    const oldToggle = document.getElementById("srcToggle");
+    if(oldToggle) oldToggle.remove();
+    const items = sourcesList.querySelectorAll("li");
+    if(items.length > 5){
+      for(let i = 5; i < items.length; i++) items[i].style.display = "none";
+      const t = document.createElement("button");
+      t.id = "srcToggle";
+      t.className = "src-toggle";
+      t.textContent = "Show all " + items.length + " sources";
+      let open = false;
+      t.onclick = function(){
+        open = !open;
+        for(let i = 5; i < items.length; i++) items[i].style.display = open ? "" : "none";
+        t.textContent = open ? "Show fewer" : "Show all " + items.length + " sources";
+      };
+      sourcesBox.appendChild(t);
+    }
   } else {
     sourcesBox.style.display = "none";
   }
   document.getElementById("reportBox").classList.add("visible");
+  document.getElementById("emptyHint").style.display = "none";
 }
 
 document.getElementById("downloadBtn").onclick = function(){
@@ -473,6 +514,7 @@ document.getElementById("runBtn").onclick = function(){
   document.getElementById("loop").classList.add("active");
   gotEvent = false;
   runStart = Date.now();
+  document.getElementById("emptyHint").style.display = "none";
   const runMeta = document.getElementById("runMeta");
   runMeta.textContent = "Starting...";
   if(runTimer) clearInterval(runTimer);
