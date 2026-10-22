@@ -120,7 +120,8 @@ def _relevant(results, min_score=0.5, keep=3, floor=2):
     return (strong if len(strong) >= floor else hits[:floor])[:keep]
 
 
-@traced(step_name="research", model="llama-3.1-8b-instant")def research_node(state: AgentState) -> dict:
+@traced(step_name="research", model="llama-3.1-8b-instant")
+def research_node(state: AgentState) -> dict:
     llm.reset_usage()
     plan = list(state.get("plan", []))
     if not plan:
