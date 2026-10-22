@@ -211,6 +211,7 @@ Every claim above traces to a page the agent retrieved from a live web search du
 - **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
 - **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
 - **Shared, unauthenticated history** - long-term memory and the session list are global, not per user. Any visitor can see recent topics, and "Clear history" deletes them for everyone. Fine for a demo; do not use it with private data.
+- **Source list is search hits, not citations** - the Sources list shows the top-scoring search results per question (up to 3), not only the pages the report relies on. Weak matches can still appear, so check figures against the links.
 - **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
 - **No source-quality filtering** — the pipeline has no source-credibility step, so the agent can cite a secondary blog as readily as a primary source, and a statistic can be re-scoped in transit (see the 30% figure in [Example output](#example-output)).
 

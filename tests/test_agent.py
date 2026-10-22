@@ -1,7 +1,7 @@
 import pytest
 
 from agent import llm
-from agent.graph import reflect_node, route_after_reflect, route_after_research
+from agent.graph import _relevant, reflect_node, route_after_reflect, route_after_research
 
 
 @pytest.fixture(autouse=True)
@@ -75,3 +75,16 @@ def test_reflect_sufficient(monkeypatch):
 def test_state_carries_all_sources():
     from agent.state import AgentState
     assert "all_sources" in AgentState.__annotations__
+
+def test_relevant_drops_weak_hits():
+    r = [{"url": "a", "score": 0.9}, {"url": "b", "score": 0.2}, {"url": "c", "score": 0.8}, {"url": "d", "score": 0.1}]
+    assert [x["url"] for x in _relevant(r)] == ["a", "c"]
+
+
+def test_relevant_keeps_floor_when_all_weak():
+    r = [{"url": "a", "score": 0.3}, {"url": "b", "score": 0.2}, {"url": "c", "score": 0.1}]
+    assert [x["url"] for x in _relevant(r)] == ["a", "b"]
+
+
+def test_relevant_without_scores_caps_at_three():
+    assert len(_relevant([{"url": str(i)} for i in range(6)])) == 3

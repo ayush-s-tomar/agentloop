@@ -106,8 +106,21 @@ def planner_node(state: AgentState) -> dict:
     }
 
 
-@traced(step_name="research", model="llama-3.1-8b-instant")
-def research_node(state: AgentState) -> dict:
+def _relevant(results, min_score=0.5, keep=3, floor=2):
+    """Keep the top-scoring search hits and drop weak matches.
+
+    If results carry no score, just cap them. If everything scores low,
+    keep the best `floor` so a question never ends up with no sources.
+    """
+    hits = [r for r in results if r.get("url")]
+    if not any("score" in r for r in hits):
+        return hits[:keep]
+    hits.sort(key=lambda r: r.get("score") or 0, reverse=True)
+    strong = [r for r in hits if (r.get("score") or 0) >= min_score]
+    return (strong if len(strong) >= floor else hits[:floor])[:keep]
+
+
+@traced(step_name="research", model="llama-3.1-8b-instant")def research_node(state: AgentState) -> dict:
     llm.reset_usage()
     plan = list(state.get("plan", []))
     if not plan:
@@ -120,8 +133,8 @@ def research_node(state: AgentState) -> dict:
 
     try:
         if llm.should_search(question):
-            results = tools.web_search(question)
-            sources = [r["url"] for r in results if r.get("url")][:5]
+            results = _relevant(tools.web_search(question))
+            sources = [r["url"] for r in results if r.get("url")]
             search_results_text = "\n\n".join(
                 f"Title: {r.get('title', '')}\n{r.get('content', r.get('snippet', ''))}"
                 for r in results

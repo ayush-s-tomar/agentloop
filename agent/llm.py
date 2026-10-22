@@ -250,7 +250,7 @@ def reflect(topic: str, notes: list[str]) -> tuple[bool, list[str]]:
                     "for a comprehensive report. "
                     'Reply with a JSON object: {"sufficient": true/false, "additional_questions": ["..."]}. '
                     "additional_questions should be at most 2 specific follow-up questions, "
-                    "only populated when sufficient is false. "
+                    "only populated when sufficient is false. Each follow-up must be a standalone, specific question that names the topic; never ask to provide, supply or complete missing data. "
                     "No markdown, raw JSON only."
                 ),
             },
