@@ -41,6 +41,7 @@ def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
                 "title": item.get("title", ""),
                 "url": item.get("url", ""),
                 "content": item.get("content", "")[:1500],  # keep prompt sizes sane
+                "score": item.get("score"),
             }
         )
     return results
