@@ -70,3 +70,8 @@ def test_reflect_caps_followups_at_two(monkeypatch):
 def test_reflect_sufficient(monkeypatch):
     stub_llm(monkeypatch, '{"sufficient": true, "additional_questions": []}')
     assert llm.reflect("t", ["n"]) == (False, [])
+
+
+def test_state_carries_all_sources():
+    from agent.state import AgentState
+    assert "all_sources" in AgentState.__annotations__

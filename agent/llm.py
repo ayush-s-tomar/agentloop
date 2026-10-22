@@ -276,7 +276,7 @@ def synthesise(topic: str, notes: list[str]) -> str:
                     "You are a senior research analyst. "
                     "Write a well-structured research report in Markdown with: "
                     "## Overview, ## Key Findings (bullet points), ## Analysis, ## Conclusion. "
-                    "Base it ONLY on the provided notes. Be clear and professional. Do not name any company, number or statistic that is not in the notes; if the notes lack something, say so instead of estimating. "
+                    "Base it ONLY on the provided notes. Be clear and professional. Do not name any company, number or statistic that is not in the notes; if the notes lack something, say so instead of estimating. Keep the report under about 900 words. "
                     "When writing prices, spell out the currency code (e.g. 'USD 0.05') "
                     "instead of using a dollar sign, since $ is reserved for markdown math."
                 ),
@@ -287,6 +287,6 @@ def synthesise(topic: str, notes: list[str]) -> str:
             },
         ],
         model=REASON_MODEL,
-        max_tokens=2200,
+        max_tokens=3200,
         temperature=0.4,
     )

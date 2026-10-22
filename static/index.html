@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgentLoop</title>
+<meta name="description" content="A multi-step research agent that plans, searches, reflects and writes a sourced report.">
+<meta property="og:title" content="AgentLoop">
+<meta property="og:description" content="A multi-step research agent that plans, searches, reflects and writes a sourced report.">
+<meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect width=%2224%22 height=%2224%22 rx=%226%22 fill=%22%231c3b36%22/><path d=%22M7 12a5 5 0 0 1 8-4l1.5 1.5M17 12a5 5 0 0 1-8 4L7.5 14.5%22 stroke=%22%235eead4%22 stroke-width=%222%22 fill=%22none%22 stroke-linecap=%22round%22/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -13,7 +17,7 @@
     --panel:#15171d;
     --panel-border:#23262f;
     --text:#e7e8ec;
-    --text-dim:#8a8d99;
+    --text-dim:#a3a6b2;
     --accent:#5eead4;
     --accent-dim:#1c3b36;
     --warn:#f0b429;
@@ -185,6 +189,14 @@
   .disclaimer{font-size:11.5px;color:var(--text-dim);margin:10px 2px 0 2px;line-height:1.6;}
   .counter{font-size:11px;color:var(--text-dim);text-align:right;margin:-8px 2px 12px 0;}
   .counter.over{color:var(--err);}
+  @media print{
+    .sidebar,.input-row,.counter,.chips,.loop,.download-btn,.error-box,#runMeta{display:none !important;}
+    .layout{display:block;}
+    body{background:#fff;color:#000;}
+    .report-body,.sources-box{background:#fff;color:#000;border-color:#ccc;}
+    .report-body h2{color:#000;}
+    .sources-box a{color:#000;}
+  }
 </style>
 </head>
 <body>
@@ -233,6 +245,7 @@
       <div class="step" data-node="persist">Saving to memory<div class="step-detail" data-detail="persist"></div></div>
     </div>
 
+    <div class="disclaimer" id="runMeta" style="margin:0 0 14px 2px;"></div>
     <div class="report" id="reportBox">
       <h3 id="reportTitle">Report</h3>
       <div class="report-body" id="reportBody"></div>
@@ -242,6 +255,7 @@
         <ul id="sourcesList"></ul>
       </div>
       <button class="download-btn" id="downloadBtn">Download report (.md)</button>
+      <button class="download-btn" id="copyBtn" style="margin-left:10px;">Copy report</button>
     </div>
   </main>
 </div>
@@ -321,9 +335,9 @@ function mdToHtml(md){
     } else if(line.startsWith("# ")){
       if(inList){html+="</ul>";inList=false;}
       html += "<h2>" + inlineMd(line.slice(2)) + "</h2>";
-    } else if(line.startsWith("- ")){
+    } else if(/^\s*([-*]|\d+\.)\s+/.test(line)){
       if(!inList){html+="<ul>";inList=true;}
-      html += "<li>" + inlineMd(line.slice(2)) + "</li>";
+      html += "<li>" + inlineMd(line.replace(/^\s*([-*]|\d+\.)\s+/, "")) + "</li>";
     } else if(trimmed===""){
       if(inList){html+="</ul>";inList=false;}
     } else if(trimmed==="---"){
@@ -340,6 +354,7 @@ function mdToHtml(md){
 }
 
 var researchLines = [];
+var runStart = 0, runTimer = null, gotEvent = false;
 function resetLoop(){
   researchLines = [];
   document.querySelectorAll(".step").forEach(function(s){
@@ -456,6 +471,17 @@ document.getElementById("runBtn").onclick = function(){
   runBtn.disabled = true;
   resetLoop();
   document.getElementById("loop").classList.add("active");
+  gotEvent = false;
+  runStart = Date.now();
+  const runMeta = document.getElementById("runMeta");
+  runMeta.textContent = "Starting...";
+  if(runTimer) clearInterval(runTimer);
+  runTimer = setInterval(function(){
+    const sec = Math.round((Date.now() - runStart) / 1000);
+    runMeta.textContent = (!gotEvent && sec > 10)
+      ? "Waking up the free-tier server (" + sec + "s)..."
+      : "Running... " + sec + "s";
+  }, 1000);
 
   fetch("/api/run", {
     method:"POST",
@@ -480,6 +506,7 @@ document.getElementById("runBtn").onclick = function(){
           });
           const payload = JSON.parse(data);
           if(eventType === "node"){
+            gotEvent = true;
             setNodeActive(payload.node);
             if(payload.node === "planner" && payload.plan){
               setDetail("planner", payload.plan.join(" | "));
@@ -497,7 +524,11 @@ document.getElementById("runBtn").onclick = function(){
             }
             setNodeDone(payload.node);
           } else if(eventType === "done"){
-            if(currentReportRaw) showReport(currentTopic, currentReportRaw, currentSources);
+            if(runTimer){ clearInterval(runTimer); runTimer = null; }
+            if(currentReportRaw){
+              showReport(currentTopic, currentReportRaw, currentSources);
+              document.getElementById("runMeta").textContent = "Completed in " + Math.round((Date.now() - runStart) / 1000) + "s - " + researchLines.length + " questions researched - " + currentSources.length + " sources";
+            }
             loadSessions();
           } else if(eventType === "error"){
             errorBox.textContent = payload.message || "Something went wrong.";
@@ -513,8 +544,23 @@ document.getElementById("runBtn").onclick = function(){
     errorBox.classList.add("visible");
   }).finally(function(){
     runBtn.disabled = false;
+    if(runTimer){ clearInterval(runTimer); runTimer = null; }
   });
 };
+
+document.getElementById("copyBtn").onclick = function(){
+  const btn = document.getElementById("copyBtn");
+  navigator.clipboard.writeText(currentReportRaw).then(function(){
+    btn.textContent = "Copied";
+    setTimeout(function(){ btn.textContent = "Copy report"; }, 1500);
+  });
+};
+
+document.getElementById("topic").addEventListener("keydown", function(e){
+  if(e.key === "Enter" && !document.getElementById("runBtn").disabled){
+    document.getElementById("runBtn").click();
+  }
+});
 
 loadSessions();
 </script>

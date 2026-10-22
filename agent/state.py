@@ -44,6 +44,7 @@ class AgentState(TypedDict, total=False):
 
     # ---- output ----
     final_report: str
+    all_sources: List[str]
 
     # ---- observability: lets the API stream "what is the agent doing" ----
     trace: List[TraceEvent]
