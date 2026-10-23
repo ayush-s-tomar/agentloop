@@ -176,7 +176,7 @@ The planner, research, reflect and synthesize nodes are wrapped in `@traced`, wh
 
 ## CI
 
-GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. It also runs a small pytest suite (no network calls, LLM stubbed) covering the graph routing functions and the LLM wrapper parsing and search-decision logic. It does not test answer quality.
+GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. It also runs a small pytest suite (no network calls, LLM stubbed) covering the graph routing functions, the LLM wrapper parsing and search-decision logic, and the figure-grounding check. It does not test answer quality.
 
 ---
 
