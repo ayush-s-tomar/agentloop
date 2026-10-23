@@ -1,0 +1,135 @@
+{
+  "summary": {
+    "runs": 10,
+    "completed": 10,
+    "median_seconds": 72.4,
+    "mean_questions": 8,
+    "mean_sources": 18.5,
+    "runs_with_reflect_loop": 10,
+    "figures_checked": 77,
+    "figures_missing": 13,
+    "figures_in_notes_pct": 83.1
+  },
+  "runs": [
+    {
+      "topic": "How the EU AI Act affects startups",
+      "completed": true,
+      "seconds": 57.4,
+      "questions": 8,
+      "sources": 23,
+      "reflect_loops": 2,
+      "figures_checked": 13,
+      "figures_missing": 4,
+      "words": 1286,
+      "error": null
+    },
+    {
+      "topic": "Current state of solid-state EV batteries",
+      "completed": true,
+      "seconds": 63.7,
+      "questions": 8,
+      "sources": 17,
+      "reflect_loops": 2,
+      "figures_checked": 12,
+      "figures_missing": 5,
+      "words": 1370,
+      "error": null
+    },
+    {
+      "topic": "Impact of AI agents on software engineering jobs",
+      "completed": true,
+      "seconds": 70.5,
+      "questions": 8,
+      "sources": 21,
+      "reflect_loops": 2,
+      "figures_checked": 4,
+      "figures_missing": 0,
+      "words": 1067,
+      "error": null
+    },
+    {
+      "topic": "State of nuclear fusion energy research",
+      "completed": true,
+      "seconds": 76.5,
+      "questions": 8,
+      "sources": 17,
+      "reflect_loops": 2,
+      "figures_checked": 6,
+      "figures_missing": 1,
+      "words": 1150,
+      "error": null
+    },
+    {
+      "topic": "How GLP-1 drugs are changing the food industry",
+      "completed": true,
+      "seconds": 81.3,
+      "questions": 8,
+      "sources": 21,
+      "reflect_loops": 2,
+      "figures_checked": 6,
+      "figures_missing": 0,
+      "words": 1171,
+      "error": null
+    },
+    {
+      "topic": "Open-source large language models versus proprietary ones",
+      "completed": true,
+      "seconds": 80.1,
+      "questions": 8,
+      "sources": 18,
+      "reflect_loops": 2,
+      "figures_checked": 18,
+      "figures_missing": 3,
+      "words": 1228,
+      "error": null
+    },
+    {
+      "topic": "Challenges of vertical farming at commercial scale",
+      "completed": true,
+      "seconds": 60.0,
+      "questions": 8,
+      "sources": 18,
+      "reflect_loops": 2,
+      "figures_checked": 5,
+      "figures_missing": 0,
+      "words": 1103,
+      "error": null
+    },
+    {
+      "topic": "Progress of quantum error correction",
+      "completed": true,
+      "seconds": 76.3,
+      "questions": 8,
+      "sources": 18,
+      "reflect_loops": 2,
+      "figures_checked": 5,
+      "figures_missing": 0,
+      "words": 875,
+      "error": null
+    },
+    {
+      "topic": "Remote work and commercial real estate demand",
+      "completed": true,
+      "seconds": 74.3,
+      "questions": 8,
+      "sources": 16,
+      "reflect_loops": 2,
+      "figures_checked": 2,
+      "figures_missing": 0,
+      "words": 1055,
+      "error": null
+    },
+    {
+      "topic": "Rise of small modular nuclear reactors",
+      "completed": true,
+      "seconds": 65.6,
+      "questions": 8,
+      "sources": 16,
+      "reflect_loops": 2,
+      "figures_checked": 6,
+      "figures_missing": 0,
+      "words": 1212,
+      "error": null
+    }
+  ]
+}

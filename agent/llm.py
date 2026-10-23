@@ -151,7 +151,7 @@ def plan(topic: str, prior_notes: list[str]) -> list[str]:
             {"role": "user", "content": f"Topic: {topic}\n\nPrior notes:\n{prior}"},
         ],
         model=REASON_MODEL,
-        max_tokens=300,
+        max_tokens=800,
     )
     return json.loads(_strip_fences(content))
 
@@ -257,7 +257,7 @@ def reflect(topic: str, notes: list[str]) -> tuple[bool, list[str]]:
             {"role": "user", "content": f"Topic: {topic}\n\nNotes:\n{notes_text}"},
         ],
         model=REASON_MODEL,
-        max_tokens=250,
+        max_tokens=800,
     )
     data = json.loads(_strip_fences(raw))
     sufficient = bool(data.get("sufficient", True))

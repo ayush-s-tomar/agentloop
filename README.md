@@ -37,7 +37,7 @@ https://github.com/user-attachments/assets/f8e0bd8c-a485-493b-89b4-2ca57ce30db5
 
 ## 📚 Contents
 
-[What It Does](#what-it-does) · [Stack](#stack) · [Project Structure](#project-structure) · [Run Locally](#run-locally) · [Deploy to Render](#deploy-to-render) · [What Makes This Agentic](#what-makes-this-agentic) · [Example Output](#example-output) · [Known Limitations](#known-limitations) · [What I'd Add Next](#what-id-add-next) · [License](#license)
+[What It Does](#what-it-does) · [Stack](#stack) · [Project Structure](#project-structure) · [Run Locally](#run-locally) · [Deploy to Render](#deploy-to-render) · [What Makes This Agentic](#what-makes-this-agentic) · [Example Output](#example-output) · [Evaluation](#evaluation) · [Known Limitations](#known-limitations) · [What I'd Add Next](#what-id-add-next) · [License](#license)
 
 ---
 
@@ -88,6 +88,7 @@ agentloop/
 │   ├── state.py         AgentState schema shared across all graph nodes
 │   ├── graph.py         LangGraph StateGraph: nodes + conditional routing
 │   ├── llm.py           LLM wrapper: plain completions + tool-calling loop
+│   ├── grounding.py     Checks that report figures also appear in the research notes
 │   └── tools.py         web_search tool (Tavily) + OpenAI-compatible schema
 ├── memory/
 │   └── store.py         SQLite long-term memory (save, recall, clear past sessions)
@@ -96,7 +97,8 @@ agentloop/
 │   └── db.py            Optional Postgres (Supabase) trace storage; no-op when unset
 ├── static/
 │   └── index.html      Frontend — input, live trace, report renderer, session history
-├── tests/               Unit tests (routing, JSON parsing; no network)
+├── evals/               run_eval.py (10-topic harness) and results.json
+├── tests/               Unit tests (routing, JSON parsing, grounding; no network)
 ├── docs/                README images and demo GIF
 ├── .github/workflows/
 │   └── ci.yml           Lint (errors only), pytest, import smoke test
@@ -174,7 +176,7 @@ The planner, research, reflect and synthesize nodes are wrapped in `@traced`, wh
 
 ## CI
 
-GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. It also runs a small pytest suite (about a dozen tests, no network calls, LLM stubbed) covering the graph routing functions and the LLM wrapper parsing and search-decision logic. It does not test answer quality.
+GitHub Actions runs `ruff` for syntax and undefined-name errors only, then imports every module as a smoke test. It also runs a small pytest suite (no network calls, LLM stubbed) covering the graph routing functions and the LLM wrapper parsing and search-decision logic. It does not test answer quality.
 
 ---
 
@@ -206,6 +208,31 @@ Every claim above traces to a page the agent retrieved from a live web search du
 
 ---
 
+## Evaluation
+
+`evals/run_eval.py` runs the real agent (live Groq and Tavily calls) on 10 fixed topics, one run each, and records completion, time, questions, sources, reflect loops, and how many figures in the report also appear in the agent's research notes. Raw results are in `evals/results.json`.
+
+| Metric (10 topics, 1 run each) | Result |
+|---|---|
+| Runs completed | 10 / 10 |
+| Median time per run | 72 s (Groq free tier, with rate-limit retries) |
+| Mean questions researched | 8.0 |
+| Mean sources listed | 18.5 |
+| Runs where reflect added follow-ups | 10 / 10 |
+| Report figures found in research notes | 83.1% (64 of 77) |
+
+**What the eval caught.** An earlier run of the same harness had the reflect step fail silently in 4 of 10 runs and the planner fall back once, because the JSON replies were cut off by small `max_tokens` limits (250 and 300). After raising both to 800, a rerun had 0 reflect failures and 0 planner failures. That earlier run also scored 90.7% of figures found in notes (68 of 75). The two grounding numbers are not directly comparable: reflect now runs every time, so reports draw on more notes and more figures get checked.
+
+**Caveats.**
+- Small sample: 10 topics, one run each. Treat the numbers as indicative, not statistically meaningful.
+- The grounding check compares the report to the agent's own notes, not to the original web pages. A figure that is wrong in the notes still passes.
+- Integers up to 10 and list numbering are ignored, and only numeric tokens are checked, not names or claims.
+- Reports show the result per run, for example "3 of 14 figures not found in research notes".
+
+Reproduce with `python evals/run_eval.py --n 10` (spends API quota).
+
+---
+
 ## Known limitations
 
 - **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
@@ -222,7 +249,7 @@ Every claim above traces to a page the agent retrieved from a live web search du
 - Vector-based memory recall (pgvector / Chroma) instead of keyword overlap
 - A second tool (calculator, doc retrieval) to show the agent choosing *between* tools
 - Token-level streaming within each node for fully real-time output
-- Eval harness with LLM-as-judge rubric to catch prompt regressions
+- LLM-as-judge rubric on top of the existing eval harness, to score answer quality (not just figure grounding)
 - Persistent (non-ephemeral) memory backend for the hosted deployment
 - Source-credibility ranking before the agent reads results (domain trust scoring, as [StartupScope](https://github.com/ayush-s-tomar/startupscope) does), so primary sources like BLS outrank secondary blogs
 

@@ -102,6 +102,7 @@ async def run_research(req: RunRequest, request: Request):
                 elif node_name == "synthesize":
                     payload["report"] = snapshot.get("final_report", "")
                     payload["sources"] = snapshot.get("all_sources", [])
+                    payload["grounding"] = snapshot.get("grounding", {})
                 yield _sse("node", payload)
             yield _sse("done", {})
         except Exception as exc:

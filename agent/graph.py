@@ -34,6 +34,7 @@ from agent.state import AgentState
 from agent import llm, tools
 from memory import store
 from tracer.trace import traced, set_run_context
+from agent.grounding import check_report
 
 log = logging.getLogger(__name__)
 
@@ -242,6 +243,7 @@ def synthesize_node(state: AgentState) -> dict:
     return {
         "final_report": report,
         "all_sources": all_sources,
+        "grounding": check_report(report, notes, state.get("topic", ""), state.get("recalled_context")),
         "trace": _trace(state, "synthesize", "Final report written."),
         **llm.get_usage(),
     }

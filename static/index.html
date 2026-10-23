@@ -288,6 +288,7 @@ const NODE_ORDER = ["recall","planner","research","reflect","synthesize","persis
 let currentReportRaw = "";
 let currentTopic = "";
 let currentSources = [];
+let currentGrounding = {};
 
 (function(){
   const input = document.getElementById("topic");
@@ -376,6 +377,13 @@ function mdToHtml(md){
   return html;
 }
 
+function groundingNote(){
+  const g = currentGrounding || {};
+  if(!g.checked) return "";
+  const m = g.missing_count || 0;
+  return m ? " - " + m + " of " + g.checked + " figures not found in research notes"
+           : " - all " + g.checked + " figures found in research notes";
+}
 var researchLines = [];
 var runStart = 0, runTimer = null, gotEvent = false;
 function resetLoop(){
@@ -563,13 +571,14 @@ document.getElementById("runBtn").onclick = function(){
             if(payload.node === "synthesize" && payload.report){
               currentReportRaw = payload.report;
               currentSources = payload.sources || [];
+              currentGrounding = payload.grounding || {};
             }
             setNodeDone(payload.node);
           } else if(eventType === "done"){
             if(runTimer){ clearInterval(runTimer); runTimer = null; }
             if(currentReportRaw){
               showReport(currentTopic, currentReportRaw, currentSources);
-              document.getElementById("runMeta").textContent = "Completed in " + Math.round((Date.now() - runStart) / 1000) + "s - " + researchLines.length + " questions researched - " + currentSources.length + " sources";
+              document.getElementById("runMeta").textContent = "Completed in " + Math.round((Date.now() - runStart) / 1000) + "s - " + researchLines.length + " questions researched - " + currentSources.length + " sources" + groundingNote();
             }
             loadSessions();
           } else if(eventType === "error"){
