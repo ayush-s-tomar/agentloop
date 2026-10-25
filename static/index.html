@@ -189,6 +189,38 @@
   .disclaimer{font-size:11.5px;color:var(--text-dim);margin:10px 2px 0 2px;line-height:1.6;}
   .counter{font-size:11px;color:var(--text-dim);text-align:right;margin:-8px 2px 12px 0;}
   .counter.over{color:var(--err);}
+  :root[data-theme="light"]{
+    --bg:#e9e7e2;--panel:#f3f1ec;--panel-border:#cfcbc2;--text:#2a2d34;--text-dim:#5f6470;
+    --accent:#2f7f77;--accent-dim:#d3e4e0;--err:#b2434a;
+  }
+  :root[data-theme="light"] body{background:var(--bg);}
+  :root[data-theme="light"] .report-body,
+  :root[data-theme="light"] .sources-box{box-shadow:0 1px 3px rgba(40,35,25,.08);}
+  :root[data-theme="light"] .sidebar{background:#dedbd4;}
+  :root[data-theme="light"] .session-item:hover,
+  :root[data-theme="light"] .report-body th{background:rgba(47,127,119,0.08);}
+  :root[data-theme="light"] #runBtn{color:#fff;}
+  :root[data-theme="light"] #topic::placeholder{color:#9a9eaa;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  @keyframes stepPulse{0%,100%{box-shadow:0 0 0 3px var(--accent-dim);}50%{box-shadow:0 0 0 7px transparent;}}
+  .report.visible{animation:fadeUp .35s ease both;}
+  .step.active::before{animation:stepPulse 1.4s ease-in-out infinite;}
+  .theme-btn{
+    margin-top:10px;width:100%;padding:10px;border-radius:8px;background:transparent;
+    border:1px solid var(--panel-border);color:var(--text-dim);font-family:inherit;
+    font-size:12px;cursor:pointer;transition:border-color .15s,color .15s;
+  }
+  .theme-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .jump{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .jump a{
+    font-size:11.5px;color:var(--text-dim);border:1px solid var(--panel-border);
+    border-radius:20px;padding:4px 10px;text-decoration:none;
+    transition:border-color .15s,color .15s;
+  }
+  .jump a:hover{border-color:var(--accent);color:var(--accent);}
+  .report-body h2{scroll-margin-top:16px;}
+  @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important;}}
+  @media print{.jump,.theme-btn{display:none !important;}}
   .note{color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;}
   .src-toggle{
     margin-top:10px;background:transparent;border:1px solid var(--panel-border);
@@ -220,6 +252,7 @@
     .sources-box a{color:#000;}
   }
 </style>
+<script>try{var __t=localStorage.getItem("al-theme");if(__t){document.documentElement.setAttribute("data-theme",__t);}}catch(e){}</script>
 </head>
 <body>
 <div class="layout">
@@ -227,6 +260,7 @@
     <h2>Past sessions</h2>
     <div id="sessionList"><span class="empty-hint">No research runs yet. Your history will appear here.</span></div>
     <button class="clear-btn" id="clearBtn" style="display:none;">Clear history</button>
+    <button class="theme-btn" id="themeBtn">Light theme</button>
     <div class="sidebar-footer">
       Backend: LangGraph &middot; Groq &middot; Tavily &middot; SQLite<br>
       <a href="https://github.com/ayush-s-tomar/agentloop" target="_blank" rel="noopener">View source on GitHub</a>
@@ -258,7 +292,7 @@
       <button class="chip" data-topic="How the EU AI Act affects startups">EU AI Act</button>
     </div>
 
-    <div class="disclaimer" id="emptyHint" style="margin:-24px 0 24px 2px;">Pick a topic chip above, then press Run. A full run takes about a minute.</div>
+    <div class="disclaimer" id="emptyHint" style="margin:-24px 0 24px 2px;">Pick a topic chip above (try "EU AI Act"), then press Run. A full run takes about a minute.</div>
     <div class="loop" id="loop">
       <div class="step" data-node="recall">Checking memory<div class="step-detail" data-detail="recall"></div></div>
       <div class="step" data-node="planner">Planning sub-questions<div class="step-detail" data-detail="planner"></div></div>
@@ -271,6 +305,7 @@
     <div class="disclaimer" id="runMeta" style="margin:0 0 14px 2px;"></div>
     <div class="report" id="reportBox">
       <h3 id="reportTitle">Report</h3>
+      <div class="jump" id="jumpBar"></div>
       <div class="report-body" id="reportBody"></div>
       <div class="disclaimer">AI-generated from web search snippets. Verify figures against the sources below.</div>
       <div class="sources-box" id="sourcesBox" style="display:none;">
@@ -279,6 +314,8 @@
       </div>
       <button class="download-btn" id="downloadBtn">Download report (.md)</button>
       <button class="download-btn" id="copyBtn" style="margin-left:10px;">Copy report</button>
+      <button class="download-btn" id="printBtn" style="margin-left:10px;">Print / save PDF</button>
+      <button class="download-btn" id="linkBtn" style="margin-left:10px;">Copy link</button>
     </div>
   </main>
 </div>
@@ -384,6 +421,7 @@ function groundingNote(){
   return m ? " - " + m + " of " + g.checked + " figures not found in research notes"
            : " - all " + g.checked + " figures found in research notes";
 }
+var currentSessionId = null, justRan = false;
 var researchLines = [];
 var runStart = 0, runTimer = null, gotEvent = false;
 function resetLoop(){
@@ -425,6 +463,7 @@ function loadSessions(){
       return;
     }
     clearBtn.style.display = "block";
+    if(justRan){ currentSessionId = sessions[0].id; justRan = false; }
     list.innerHTML = "";
     sessions.forEach(function(s){
       const btn = document.createElement("button");
@@ -436,6 +475,8 @@ function loadSessions(){
           if(full && full.report){
             currentReportRaw = full.report;
             currentTopic = full.topic;
+            currentSessionId = s.id;
+            history.replaceState(null, "", "#s=" + s.id);
             var srcs = full.sources || [];
             if(!srcs.length && Array.isArray(full.notes)){
               full.notes.forEach(function(n){
@@ -455,6 +496,29 @@ document.getElementById("clearBtn").onclick = function(){
   if(!confirm("Delete all past sessions? This can't be undone.")) return;
   fetch("/api/sessions", {method:"DELETE"}).then(function(){ loadSessions(); });
 };
+
+function buildJump(){
+  const bar = document.getElementById("jumpBar");
+  bar.innerHTML = "";
+  const links = [];
+  document.getElementById("reportBody").querySelectorAll("h2").forEach(function(h, i){
+    h.id = "sec-" + i;
+    links.push(["sec-" + i, h.textContent]);
+  });
+  if(document.getElementById("sourcesBox").style.display !== "none") links.push(["sourcesBox", "Sources"]);
+  bar.style.display = links.length > 1 ? "flex" : "none";
+  links.forEach(function(l){
+    const a = document.createElement("a");
+    a.href = "#" + l[0];
+    a.textContent = l[1];
+    a.onclick = function(e){
+      e.preventDefault();
+      const el = document.getElementById(l[0]);
+      if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+    };
+    bar.appendChild(a);
+  });
+}
 
 function showReport(topic, report, sources){
   document.getElementById("reportTitle").textContent = topic || "Report";
@@ -493,6 +557,7 @@ function showReport(topic, report, sources){
     sourcesBox.style.display = "none";
   }
   document.getElementById("reportBox").classList.add("visible");
+  buildJump();
   document.getElementById("emptyHint").style.display = "none";
 }
 
@@ -580,6 +645,7 @@ document.getElementById("runBtn").onclick = function(){
               showReport(currentTopic, currentReportRaw, currentSources);
               document.getElementById("runMeta").textContent = "Completed in " + Math.round((Date.now() - runStart) / 1000) + "s - " + researchLines.length + " questions researched - " + currentSources.length + " sources" + groundingNote();
             }
+            justRan = true;
             loadSessions();
           } else if(eventType === "error"){
             errorBox.textContent = payload.message || "Something went wrong.";
@@ -612,6 +678,57 @@ document.getElementById("topic").addEventListener("keydown", function(e){
     document.getElementById("runBtn").click();
   }
 });
+
+document.getElementById("printBtn").onclick = function(){ window.print(); };
+
+document.getElementById("linkBtn").onclick = function(){
+  const btn = document.getElementById("linkBtn");
+  if(!currentSessionId){
+    btn.textContent = "No saved session yet";
+    setTimeout(function(){ btn.textContent = "Copy link"; }, 1800);
+    return;
+  }
+  const url = location.origin + location.pathname + "#s=" + currentSessionId;
+  navigator.clipboard.writeText(url).then(function(){
+    btn.textContent = "Link copied";
+    setTimeout(function(){ btn.textContent = "Copy link"; }, 1500);
+  });
+};
+
+(function(){
+  const btn = document.getElementById("themeBtn");
+  let cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  function apply(t){
+    if(t === "light") document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+    btn.textContent = t === "light" ? "Dark theme" : "Light theme";
+  }
+  apply(cur);
+  btn.onclick = function(){
+    cur = cur === "light" ? "dark" : "light";
+    apply(cur);
+    try{ localStorage.setItem("al-theme", cur); }catch(e){}
+  };
+})();
+
+(function(){
+  const m = location.hash.match(/^#s=([\w-]+)$/);
+  if(!m) return;
+  fetch("/api/sessions/" + m[1]).then(function(r){ return r.json(); }).then(function(full){
+    if(full && full.report){
+      currentReportRaw = full.report;
+      currentTopic = full.topic;
+      currentSessionId = m[1];
+      var srcs = full.sources || [];
+      if(!srcs.length && Array.isArray(full.notes)){
+        full.notes.forEach(function(n){
+          (n.sources || []).forEach(function(u){ if(srcs.indexOf(u) < 0) srcs.push(u); });
+        });
+      }
+      showReport(full.topic, full.report, srcs);
+    }
+  }).catch(function(){});
+})();
 
 loadSessions();
 </script>
