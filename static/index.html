@@ -221,6 +221,13 @@
   .report-body h2{scroll-margin-top:16px;}
   @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important;}}
   @media print{.jump,.theme-btn{display:none !important;}}
+  .trail-item{margin:0 0 12px 0;}
+  .trail-q{font-weight:600;margin-bottom:4px;}
+  .trail-none{color:var(--text-dim);font-style:italic;}
+  #trailBox summary{cursor:pointer;color:var(--text-dim);}
+  #trailBox ul{margin:4px 0 0 0;padding-left:18px;}
+  #trailBox li{margin-bottom:4px;word-break:break-all;}
+  #trailBox a{color:var(--accent);text-decoration:none;}
   .note{color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;}
   .src-toggle{
     margin-top:10px;background:transparent;border:1px solid var(--panel-border);
@@ -312,6 +319,10 @@
         <h4>Sources</h4>
         <ul id="sourcesList"></ul>
       </div>
+      <details class="sources-box" id="trailBox" style="display:none;">
+        <summary>Research trail (sources per question)</summary>
+        <div id="trailList" style="margin-top:10px;"></div>
+      </details>
       <button class="download-btn" id="downloadBtn">Download report (.md)</button>
       <button class="download-btn" id="copyBtn" style="margin-left:10px;">Copy report</button>
       <button class="download-btn" id="printBtn" style="margin-left:10px;">Print / save PDF</button>
@@ -321,6 +332,23 @@
 </div>
 
 <script>
+const CLIENT_ID = (function(){
+  try{
+    var id = localStorage.getItem("al-client");
+    if(id && /^[A-Za-z0-9-]{8,64}$/.test(id)) return id;
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+       : (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2));
+    localStorage.setItem("al-client", id);
+    return id;
+  }catch(e){
+    return "anon-" + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
+  }
+})();
+function apiFetch(url, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, {"X-Client-Id": CLIENT_ID});
+  return fetch(url, opts);
+}
 const NODE_ORDER = ["recall","planner","research","reflect","synthesize","persist"];
 let currentReportRaw = "";
 let currentTopic = "";
@@ -421,7 +449,7 @@ function groundingNote(){
   return m ? " - " + m + " of " + g.checked + " figures not found in research notes"
            : " - all " + g.checked + " figures found in research notes";
 }
-var currentSessionId = null, justRan = false;
+var currentSessionId = null, justRan = false, currentNotes = [];
 var researchLines = [];
 var runStart = 0, runTimer = null, gotEvent = false;
 function resetLoop(){
@@ -454,7 +482,7 @@ function setDetail(node, text){
 }
 
 function loadSessions(){
-  fetch("/api/sessions").then(function(res){return res.json();}).then(function(sessions){
+  apiFetch("/api/sessions").then(function(res){return res.json();}).then(function(sessions){
     const list = document.getElementById("sessionList");
     const clearBtn = document.getElementById("clearBtn");
     if(!sessions.length){
@@ -471,7 +499,8 @@ function loadSessions(){
       btn.textContent = s.topic || "(untitled)";
       btn.title = s.topic || "";
       btn.onclick = function(){
-        fetch("/api/sessions/" + s.id).then(function(r){return r.json();}).then(function(full){
+        apiFetch("/api/sessions/" + s.id).then(function(r){return r.json();}).then(function(full){
+          currentNotes = (full && full.notes) || [];
           if(full && full.report){
             currentReportRaw = full.report;
             currentTopic = full.topic;
@@ -494,7 +523,7 @@ function loadSessions(){
 
 document.getElementById("clearBtn").onclick = function(){
   if(!confirm("Delete all past sessions? This can't be undone.")) return;
-  fetch("/api/sessions", {method:"DELETE"}).then(function(){ loadSessions(); });
+  apiFetch("/api/sessions", {method:"DELETE"}).then(function(){ loadSessions(); });
 };
 
 function buildJump(){
@@ -518,6 +547,41 @@ function buildJump(){
     };
     bar.appendChild(a);
   });
+}
+
+function renderTrail(){
+  const box = document.getElementById("trailBox");
+  const list = document.getElementById("trailList");
+  list.innerHTML = "";
+  if(!currentNotes || !currentNotes.length){ box.style.display = "none"; return; }
+  currentNotes.forEach(function(n, i){
+    const item = document.createElement("div");
+    item.className = "trail-item";
+    const q = document.createElement("div");
+    q.className = "trail-q";
+    q.textContent = (i + 1) + ". " + (n.question || "");
+    item.appendChild(q);
+    const srcs = n.sources || [];
+    if(srcs.length){
+      const ul = document.createElement("ul");
+      srcs.forEach(function(url){
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = url; a.target = "_blank"; a.rel = "noopener";
+        a.textContent = url;
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+      item.appendChild(ul);
+    } else {
+      const none = document.createElement("div");
+      none.className = "trail-none";
+      none.textContent = "No web sources (answered from model knowledge, or the search failed).";
+      item.appendChild(none);
+    }
+    list.appendChild(item);
+  });
+  box.style.display = "block";
 }
 
 function showReport(topic, report, sources){
@@ -558,6 +622,7 @@ function showReport(topic, report, sources){
   }
   document.getElementById("reportBox").classList.add("visible");
   buildJump();
+  renderTrail();
   document.getElementById("emptyHint").style.display = "none";
 }
 
@@ -598,7 +663,7 @@ document.getElementById("runBtn").onclick = function(){
       : "Running... " + sec + "s";
   }, 1000);
 
-  fetch("/api/run", {
+  apiFetch("/api/run", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({topic:topic})
@@ -637,6 +702,7 @@ document.getElementById("runBtn").onclick = function(){
               currentReportRaw = payload.report;
               currentSources = payload.sources || [];
               currentGrounding = payload.grounding || {};
+              currentNotes = payload.notes || [];
             }
             setNodeDone(payload.node);
           } else if(eventType === "done"){
@@ -714,7 +780,8 @@ document.getElementById("linkBtn").onclick = function(){
 (function(){
   const m = location.hash.match(/^#s=([\w-]+)$/);
   if(!m) return;
-  fetch("/api/sessions/" + m[1]).then(function(r){ return r.json(); }).then(function(full){
+  apiFetch("/api/sessions/" + m[1]).then(function(r){ return r.json(); }).then(function(full){
+    currentNotes = (full && full.notes) || [];
     if(full && full.report){
       currentReportRaw = full.report;
       currentTopic = full.topic;

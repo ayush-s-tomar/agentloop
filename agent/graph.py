@@ -55,7 +55,7 @@ def _trace(state: AgentState, node: str, message: str) -> List[dict]:
 
 def recall_node(state: AgentState) -> dict:
     topic = state["topic"]
-    past = store.find_similar_session(topic)
+    past = store.find_similar_session(topic, owner=state.get("owner", ""))
     if past:
         context = (
             f"On {past['created_at']:.0f}, a similar topic (\"{past['topic']}\") "
@@ -244,6 +244,7 @@ def synthesize_node(state: AgentState) -> dict:
         "final_report": report,
         "all_sources": all_sources,
         "grounding": check_report(report, notes, state.get("topic", ""), state.get("recalled_context")),
+        "trail": [{"question": n.get("question", ""), "sources": n.get("sources", [])} for n in notes],
         "trace": _trace(state, "synthesize", "Final report written."),
         **llm.get_usage(),
     }
@@ -257,6 +258,7 @@ def persist_node(state: AgentState) -> dict:
             plan=state.get("completed_questions", []),
             notes=state.get("notes", []),
             report=state.get("final_report", ""),
+            owner=state.get("owner", ""),
         )
     except Exception as e:
         log.error("Persist node failed: %s", e)
@@ -291,11 +293,12 @@ def build_graph():
 graph = build_graph()
 
 
-def run(topic: str):
+def run(topic: str, owner: str = ""):
     """Generator that yields (node_name, snapshot) as each node finishes."""
     set_run_context(agent_name="AgentLoop")
 
     init: AgentState = {
+        "owner":                  owner,
         "session_id":             str(uuid.uuid4()),
         "topic":                  topic,
         "recalled_context":       None,

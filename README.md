@@ -168,7 +168,7 @@ This repo includes a `render.yaml` Blueprint (Render dashboard > New > Blueprint
 
 ## Abuse and cost controls
 
-The public demo spends real API quota, so `/api/run` rejects topics over 200 characters and allows 5 runs per IP per hour (`RATE_LIMIT_RUNS`). The limiter is in-memory, so it resets on restart and is per instance, and a determined client can evade it by spoofing proxy headers. It is a guard against casual abuse, not a security boundary. CORS is open (`*`) because the API has no cookies or auth. Sessions are not access-controlled (see Known limitations).
+The public demo spends real API quota, so `/api/run` rejects topics over 200 characters and allows 5 runs per IP per hour (`RATE_LIMIT_RUNS`). The limiter is in-memory, so it resets on restart and is per instance, and a determined client can evade it by spoofing proxy headers. It is a guard against casual abuse, not a security boundary. CORS is open (`*`) because the API has no cookies or auth. Sessions are scoped per browser but not authenticated (see Known limitations).
 
 ## Tracing (optional)
 
@@ -237,8 +237,8 @@ Reproduce with `python evals/run_eval.py --n 10` (spends API quota).
 
 - **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
 - **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
-- **Shared, unauthenticated history** - long-term memory and the session list are global, not per user. Any visitor can see recent topics, and "Clear history" deletes them for everyone. Fine for a demo; do not use it with private data.
-- **Source list is search hits, not citations** - the Sources list shows the top-scoring search results per question (up to 3), not only the pages the report relies on. Weak matches can still appear, so check figures against the links.
+- **Per-browser, not authenticated history** - sessions are tied to a random ID kept in the visitor's browser, so visitors do not see or clear each other's history. This is isolation, not a login: anyone holding the ID can read that history, and clearing browser storage loses access. Memory also resets on Render restarts.
+- **Sources are search hits, not citations** - the Sources list and the per-question "Research trail" show the top-scoring search results for each question (up to 3), not only the pages the report relies on. Weak matches can still appear, so check figures against the links.
 - **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
 - **No source-quality filtering** — the pipeline has no source-credibility step, so the agent can cite a secondary blog as readily as a primary source, and a statistic can be re-scoped in transit (see the 30% figure in [Example output](#example-output)).
 

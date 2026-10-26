@@ -46,6 +46,8 @@ class AgentState(TypedDict, total=False):
     final_report: str
     all_sources: List[str]
     grounding: dict
+    trail: list
+    owner: str
 
     # ---- observability: lets the API stream "what is the agent doing" ----
     trace: List[TraceEvent]

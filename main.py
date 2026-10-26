@@ -18,6 +18,7 @@ Deploy:
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict, deque
 
@@ -55,6 +56,15 @@ def _rate_limited(ip: str) -> bool:
     return False
 
 
+_CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
+
+
+def _owner(request: Request) -> str:
+    """Per-browser id from the X-Client-Id header; empty string when missing or malformed."""
+    cid = request.headers.get("x-client-id", "")
+    return cid if _CLIENT_ID_RE.match(cid) else ""
+
+
 store.init_db()
 
 app = FastAPI(title="AgentLoop")
@@ -77,6 +87,7 @@ def _sse(event: str, data: dict) -> str:
 @app.post("/api/run")
 async def run_research(req: RunRequest, request: Request):
     topic = (req.topic or "").strip()
+    owner = _owner(request)
 
     async def stream():
         if not topic:
@@ -89,7 +100,7 @@ async def run_research(req: RunRequest, request: Request):
             yield _sse("error", {"message": "Rate limit reached for this demo. Please try again later."})
             return
         try:
-            for node_name, snapshot in agent_run(topic):
+            for node_name, snapshot in agent_run(topic, owner):
                 payload = {"node": node_name}
                 if node_name == "planner":
                     payload["plan"] = snapshot.get("plan", [])
@@ -103,6 +114,7 @@ async def run_research(req: RunRequest, request: Request):
                     payload["report"] = snapshot.get("final_report", "")
                     payload["sources"] = snapshot.get("all_sources", [])
                     payload["grounding"] = snapshot.get("grounding", {})
+                    payload["notes"] = snapshot.get("trail", [])
                 yield _sse("node", payload)
             yield _sse("done", {})
         except Exception as exc:
@@ -113,25 +125,31 @@ async def run_research(req: RunRequest, request: Request):
 
 
 @app.get("/api/sessions")
-async def list_sessions():
+async def list_sessions(request: Request):
     try:
-        return store.list_sessions(limit=20)
+        owner = _owner(request)
+        if not owner:
+            return []
+        return store.list_sessions(limit=20, owner=owner)
     except Exception as e:
         log.error("Could not load history: %s", e)
         return []
 
 
 @app.get("/api/sessions/{session_id}")
-async def get_session(session_id: str):
-    full = store.get_session(session_id)
+async def get_session(session_id: str, request: Request):
+    owner = _owner(request)
+    full = store.get_session(session_id, owner=owner) if owner else None
     if not full:
         return {"error": "not found"}
     return full
 
 
 @app.delete("/api/sessions")
-async def clear_sessions():
-    store.delete_all_sessions()
+async def clear_sessions(request: Request):
+    owner = _owner(request)
+    if owner:
+        store.delete_all_sessions(owner=owner)
     return {"ok": True}
 
 
