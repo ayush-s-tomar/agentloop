@@ -27,12 +27,12 @@ def _get_client() -> TavilyClient:
     return _client
 
 
-def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
+def _search_uncached(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     """Run a live web search and return [{title, url, content}, ...]."""
     response = _get_client().search(
         query=query,
         max_results=max_results,
-        search_depth="advanced",
+        search_depth=os.environ.get("TAVILY_DEPTH", "advanced"),
     )
     results = []
     for item in response.get("results", []):
@@ -44,6 +44,27 @@ def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
                 "score": item.get("score"),
             }
         )
+    return results
+
+
+import time as _time
+
+_CACHE: dict = {}
+_CACHE_TTL_S = 3600
+_CACHE_MAX = 64
+
+
+def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    """Cached wrapper: identical queries within an hour reuse the earlier results (saves Tavily credits)."""
+    key = (" ".join(query.lower().split()), max_results)
+    hit = _CACHE.get(key)
+    now = _time.time()
+    if hit and now - hit[0] < _CACHE_TTL_S:
+        return hit[1]
+    results = _search_uncached(query, max_results)
+    if len(_CACHE) >= _CACHE_MAX:
+        _CACHE.pop(next(iter(_CACHE)))
+    _CACHE[key] = (now, results)
     return results
 
 

@@ -107,6 +107,23 @@ def planner_node(state: AgentState) -> dict:
     }
 
 
+import re as _re
+
+_WORD = _re.compile(r"[a-z0-9]+")
+
+
+def _too_similar(question, done, threshold=0.6):
+    """True if `question` overlaps heavily (Jaccard on words) with an already-researched one."""
+    a = set(_WORD.findall(question.lower()))
+    if not a:
+        return False
+    for d in done:
+        b = set(_WORD.findall(d.lower()))
+        if b and len(a & b) / len(a | b) >= threshold:
+            return True
+    return False
+
+
 def _relevant(results, min_score=0.5, keep=3, floor=2):
     """Keep the top-scoring search hits and drop weak matches.
 
@@ -128,8 +145,18 @@ def research_node(state: AgentState) -> dict:
     if not plan:
         return {}
 
+    done = list(state.get("completed_questions", []))
     question = plan.pop(0)
-    completed = list(state.get("completed_questions", [])) + [question]
+    while plan and _too_similar(question, done):
+        log.info("Skipping near-duplicate question: %s", question)
+        question = plan.pop(0)
+    if _too_similar(question, done):
+        return {
+            "plan": plan,
+            "trace": _trace(state, "research", "Researching (skipped duplicate): " + question),
+            **llm.get_usage(),
+        }
+    completed = done + [question]
 
     sources: List[str] = []
 
