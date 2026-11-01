@@ -32,19 +32,27 @@ TOPICS = [
 
 def run_one(topic):
     from agent.graph import run
+    from memory import store
+
+    store.init_db()
 
     start = time.time()
-    final, researched, loops, error = {}, 0, 0, None
+    final, researched, loops, failed, error = {}, 0, 0, 0, None
     try:
         for node, snap in run(topic):
             if node == "research":
                 researched += 1
+                tr = snap.get("trace") or []
+                if tr and str(tr[-1].get("message", "")).startswith("Researching (failed)"):
+                    failed += 1
             elif node == "reflect" and snap.get("decision") == "more_research":
                 loops += 1
             elif node == "synthesize":
                 final = snap
     except Exception as exc:  # keep going so one failure does not end the eval
         error = str(exc)[:200]
+    if failed and not error:
+        error = "%d research step(s) failed (search or LLM error)" % failed
     g = final.get("grounding") or {}
     return {
         "topic": topic,
@@ -53,6 +61,7 @@ def run_one(topic):
         "questions": researched,
         "sources": len(final.get("all_sources") or []),
         "reflect_loops": loops,
+        "search_failures": failed,
         "figures_checked": g.get("checked", 0),
         "figures_missing": g.get("missing_count", 0),
         "words": len((final.get("final_report") or "").split()),
