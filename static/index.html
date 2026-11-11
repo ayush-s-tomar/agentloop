@@ -691,7 +691,7 @@ document.getElementById("runBtn").onclick = function(){
             if(payload.node === "planner" && payload.plan){
               setDetail("planner", payload.plan.join(" | "));
             }
-            if(payload.node === "research" && payload.message){
+            if(payload.node === "research" && payload.message && payload.message.indexOf("skipped duplicate") === -1){
               researchLines.push(payload.message.replace(/^Researching \((web|knowledge|failed)\):\s*/, ""));
               setDetail("research", researchLines.map(function(q, i){ return (i + 1) + ". " + q; }).join("\n"));
             }

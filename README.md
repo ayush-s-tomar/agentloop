@@ -215,13 +215,15 @@ Every claim above traces to a page the agent retrieved from a live web search du
 | Metric (10 topics, 1 run each) | Result |
 |---|---|
 | Runs completed | 10 / 10 |
-| Median time per run | 72 s (Groq free tier, with rate-limit retries) |
-| Mean questions researched | 8.0 |
-| Mean sources listed | 18.5 |
+| Median time per run | 53 s (Groq free tier, with rate-limit retries) |
+| Mean questions researched | 7.1 |
+| Mean sources listed | 16.7 |
 | Runs where reflect added follow-ups | 10 / 10 |
-| Report figures found in research notes | 83.1% (64 of 77) |
+| Report figures found in research notes | 85.7% (78 of 91) |
 
 **What the eval caught.** An earlier run of the same harness had the reflect step fail silently in 4 of 10 runs and the planner fall back once, because the JSON replies were cut off by small `max_tokens` limits (250 and 300). After raising both to 800, a rerun had 0 reflect failures and 0 planner failures. That earlier run also scored 90.7% of figures found in notes (68 of 75). The two grounding numbers are not directly comparable: reflect now runs every time, so reports draw on more notes and more figures get checked.
+
+**Efficiency changes.** After the first 10-topic run (72 s median, 8.0 questions, 83.1% of figures in notes), I added skipping of sub-questions that overlap heavily (word-level Jaccard >= 0.6) with ones already researched, a one-hour cache for identical search queries, and a configurable `TAVILY_DEPTH`. The table above is the rerun with those changes. Groq rate-limit waits vary between runs, so part of the time gain may be noise. One topic (quantum error correction) accounts for 8 of the 13 figures not found in notes.
 
 **Caveats.**
 - Small sample: 10 topics, one run each. Treat the numbers as indicative, not statistically meaningful.
