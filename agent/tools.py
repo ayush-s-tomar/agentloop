@@ -68,6 +68,18 @@ def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     return results
 
 
+def fetch_page(url: str, max_chars: int = 3000) -> str:
+    """Second tool: read the full text of one page. Returns "" on any failure."""
+    try:
+        resp = _get_client().extract(urls=[url])
+        items = resp.get("results") or []
+        if not items:
+            return ""
+        return (items[0].get("raw_content") or "")[:max_chars]
+    except Exception:
+        return ""
+
+
 # OpenAI-compatible tool schema — Groq's chat completions API speaks this format.
 WEB_SEARCH_TOOL_SCHEMA = {
     "type": "function",

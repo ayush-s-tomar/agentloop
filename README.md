@@ -241,7 +241,7 @@ Reproduce with `python evals/run_eval.py --n 10` (spends API quota).
 - **Free-tier cold starts** — the service spins down on inactivity, so the first request after idle can take 30–50s to respond.
 - **Per-browser, not authenticated history** - sessions are tied to a random ID kept in the visitor's browser, so visitors do not see or clear each other's history. This is isolation, not a login: anyone holding the ID can read that history, and clearing browser storage loses access. Memory also resets on Render restarts.
 - **Sources are search hits, not citations** - the Sources list and the per-question "Research trail" show the top-scoring search results for each question (up to 3), not only the pages the report relies on. Weak matches can still appear, so check figures against the links.
-- **Single tool** — the agent currently only has `web_search` available, so tool *selection* isn't demonstrated, only tool *invocation timing* (whether to search or not per sub-question).
+- **Two tools, simple policy** - the agent has `web_search` and `fetch_page`. It fetches the top result's full page only when that result's snippet is under 400 characters (one fetch per question, falls back to the snippet on error, `FETCH_PAGES=0` disables it). The choice is a fixed rule, not an LLM decision, and the eval has not been rerun with it.
 - **No source-quality filtering** — the pipeline has no source-credibility step, so the agent can cite a secondary blog as readily as a primary source, and a statistic can be re-scoped in transit (see the 30% figure in [Example output](#example-output)).
 
 ---

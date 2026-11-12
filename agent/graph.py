@@ -164,6 +164,10 @@ def research_node(state: AgentState) -> dict:
         if llm.should_search(question):
             results = _relevant(tools.web_search(question))
             sources = [r["url"] for r in results if r.get("url")]
+            if results and os.environ.get("FETCH_PAGES", "1") != "0" and len(results[0].get("content", "")) < 400:
+                page = tools.fetch_page(results[0]["url"])
+                if page:
+                    results[0] = dict(results[0], content=page)
             search_results_text = "\n\n".join(
                 f"Title: {r.get('title', '')}\n{r.get('content', r.get('snippet', ''))}"
                 for r in results
