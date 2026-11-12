@@ -35,6 +35,9 @@ def run_one(topic):
     from memory import store
 
     store.init_db()
+    from memory import store
+
+    store.init_db()
 
     start = time.time()
     final, researched, loops, failed, error = {}, 0, 0, 0, None
