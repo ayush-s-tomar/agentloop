@@ -15,6 +15,8 @@ Dependency-free (stdlib sqlite3) so there is nothing extra to provision.
 """
 
 import json
+import logging
+import os
 import re
 import sqlite3
 import time
@@ -149,3 +151,26 @@ def find_similar_session(topic: str, threshold: float = 0.45, owner: str = "") -
     if best and best_score >= threshold:
         return best
     return None
+
+
+def _select_backend() -> str:
+    """'postgres' only when HISTORY_BACKEND=postgres AND the SUPABASE_DB_* vars are set."""
+    if os.environ.get("HISTORY_BACKEND", "").lower() != "postgres":
+        return "sqlite"
+    if not all(os.environ.get(v) for v in ("SUPABASE_DB_HOST", "SUPABASE_DB_USER", "SUPABASE_DB_PASSWORD")):
+        return "sqlite"
+    return "postgres"
+
+
+BACKEND = "sqlite"
+if _select_backend() == "postgres":
+    try:
+        from memory import pg_store as _pg
+
+        _pg.init_db()  # fails fast if the database is unreachable
+        init_db, save_session, list_sessions = _pg.init_db, _pg.save_session, _pg.list_sessions
+        get_session, delete_session = _pg.get_session, _pg.delete_session
+        delete_all_sessions, find_similar_session = _pg.delete_all_sessions, _pg.find_similar_session
+        BACKEND = "postgres"
+    except Exception as _exc:
+        logging.getLogger(__name__).warning("Postgres history unavailable (%s); using SQLite.", _exc)
