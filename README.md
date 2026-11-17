@@ -235,6 +235,22 @@ Reproduce with `python evals/run_eval.py --n 10` (spends API quota).
 
 ---
 
+## Baseline comparison
+
+`evals/compare.py` compares AgentLoop with a baseline of one Tavily search plus one LLM call, using an LLM judge that scores each report separately (1 to 5 for relevance, completeness and support). Raw results are in `evals/compare_results.json`.
+
+| 3 topics, 1 run each | AgentLoop | Baseline |
+|---|---|---|
+| Relevance (mean) | 5.0 | 5.0 |
+| Completeness (mean) | 4.0 | 4.0 |
+| Support (mean) | 2.0 | 2.33 |
+| Median time | 53.9 s | 8.2 s |
+| Wins / ties / losses (AgentLoop) | 1 / 1 / 1 | |
+
+**What this says.** On these three topics the multi-step loop did not beat a single search plus one call on judged quality, and it was about 6x slower. Both scored low on support. This is a small, noisy sample, and the judge comes from the same model family that wrote the reports, so treat it as a prompt to improve the agent, not as a verdict. Planned work: a larger repeated comparison, claim-level grounding, and inline citations.
+
+---
+
 ## Known limitations
 
 - **Ephemeral memory on Render's free tier** — the SQLite long-term memory resets on redeploy/restart, since the filesystem isn't persistent. Long-term memory works correctly within a session/uptime window, but won't survive a cold restart. Swapping in a hosted Postgres (e.g. Supabase) fixes this — see [What I'd add next](#what-id-add-next).
