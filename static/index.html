@@ -443,6 +443,12 @@ function mdToHtml(md){
   return html;
 }
 
+function claimsNote(){
+  const c = currentClaims || {};
+  if(!c.sentences) return "";
+  return c.weak_count ? " - " + c.weak_count + " of " + c.sentences + " sentences weakly supported by notes"
+                      : " - all " + c.sentences + " sentences consistent with notes";
+}
 function groundingNote(){
   const g = currentGrounding || {};
   if(!g.checked) return "";
@@ -450,7 +456,7 @@ function groundingNote(){
   return m ? " - " + m + " of " + g.checked + " figures not found in research notes (highlighted below)"
            : " - all " + g.checked + " figures found in research notes";
 }
-var currentSessionId = null, justRan = false, currentNotes = [];
+var currentSessionId = null, justRan = false, currentNotes = [], currentClaims = {};
 var researchLines = [];
 var runStart = 0, runTimer = null, gotEvent = false;
 function resetLoop(){
@@ -733,6 +739,7 @@ document.getElementById("runBtn").onclick = function(){
               currentSources = payload.sources || [];
               currentGrounding = payload.grounding || {};
               currentNotes = payload.notes || [];
+              currentClaims = payload.claims || {};
             }
             setNodeDone(payload.node);
           } else if(eventType === "done"){
@@ -740,7 +747,7 @@ document.getElementById("runBtn").onclick = function(){
             if(currentReportRaw){
               showReport(currentTopic, currentReportRaw, currentSources);
               highlightUnsupported();
-              document.getElementById("runMeta").textContent = "Completed in " + Math.round((Date.now() - runStart) / 1000) + "s - " + researchLines.length + " questions researched - " + currentSources.length + " sources" + groundingNote();
+              document.getElementById("runMeta").textContent = "Completed in " + Math.round((Date.now() - runStart) / 1000) + "s - " + researchLines.length + " questions researched - " + currentSources.length + " sources" + groundingNote() + claimsNote();
             }
             justRan = true;
             loadSessions();

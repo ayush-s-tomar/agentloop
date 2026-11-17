@@ -115,6 +115,7 @@ async def run_research(req: RunRequest, request: Request):
                     payload["sources"] = snapshot.get("all_sources", [])
                     payload["grounding"] = snapshot.get("grounding", {})
                     payload["notes"] = snapshot.get("trail", [])
+                    payload["claims"] = snapshot.get("claims", {})
                 yield _sse("node", payload)
             yield _sse("done", {})
         except Exception as exc:
