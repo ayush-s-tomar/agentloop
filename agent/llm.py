@@ -60,6 +60,25 @@ def _get_client() -> Groq:
     return _client
 
 
+FALLBACK_AFTER = 3  # rate-limit hits on one model before switching to its fallback
+_stats = {"fallbacks": 0}
+
+
+def fallback_count() -> int:
+    """How many times a call switched to a fallback model (process lifetime)."""
+    return _stats["fallbacks"]
+
+
+def _fallback_for(model: str):
+    """GROQ_FALLBACK_MODEL if set; else the fast model for the reasoning model; else None."""
+    env = os.environ.get("GROQ_FALLBACK_MODEL", "").strip()
+    if env:
+        return env if env != model else None
+    if model == REASON_MODEL and FAST_MODEL != REASON_MODEL:
+        return FAST_MODEL
+    return None
+
+
 def _call(
     messages: list[dict],
     model: str,
@@ -96,6 +115,14 @@ def _call(
             )
             if attempt == MAX_RETRIES:
                 raise
+            if attempt >= FALLBACK_AFTER:
+                alt = _fallback_for(model)
+                if alt:
+                    log.warning("Rate-limited on %s; falling back to %s.", model, alt)
+                    model = alt
+                    _stats["fallbacks"] += 1
+                    delay = BASE_DELAY_SEC
+                    continue
             time.sleep(wait)
             delay = min(delay * 2, MAX_DELAY_SEC)
 
