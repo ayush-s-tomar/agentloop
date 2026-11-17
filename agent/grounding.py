@@ -13,7 +13,8 @@ _LIST_MARKER = re.compile(r"(?m)^\s*(?:#+\s*)?\d+\.\s+")
 
 def extract_numbers(text):
     """Return numeric tokens from text, with thousands separators removed."""
-    text = _LIST_MARKER.sub("", text or "")
+    text = re.sub(r"\[\d+\]", "", text or "")
+    text = _LIST_MARKER.sub("", text)
     return [tok.replace(",", "") for tok in _NUM.findall(text)]
 
 

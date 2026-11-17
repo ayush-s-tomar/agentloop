@@ -277,6 +277,7 @@ def synthesise(topic: str, notes: list[str]) -> str:
                     "Write a well-structured research report in Markdown with: "
                     "## Overview, ## Key Findings (bullet points), ## Analysis, ## Conclusion. "
                     "Base it ONLY on the provided notes. Be clear and professional. Do not name any company, number or statistic that is not in the notes; if the notes lack something, say so instead of estimating. Keep the report under about 900 words. "
+                    "Each note is numbered like [1]. After every sentence that states a fact, cite the supporting note number in square brackets, e.g. [2] or [1][3]. Only cite numbers that exist; never invent one. "
                     "When writing prices, spell out the currency code (e.g. 'USD 0.05') "
                     "instead of using a dollar sign, since $ is reserved for markdown math."
                 ),

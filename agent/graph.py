@@ -248,8 +248,8 @@ def synthesize_node(state: AgentState) -> dict:
     llm.reset_usage()
     notes = state.get("notes", [])
     notes_list = [
-        f"Q: {n['question']}\nA: {n['answer']}\nSources: {', '.join(n['sources']) or 'none'}"
-        for n in notes
+        f"[{i}] Q: {n['question']}\nA: {n['answer']}\nSources: {', '.join(n['sources']) or 'none'}"
+        for i, n in enumerate(notes, 1)
     ]
 
     if state.get("recalled_context"):
