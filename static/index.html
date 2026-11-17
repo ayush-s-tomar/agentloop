@@ -229,6 +229,9 @@
   #trailBox li{margin-bottom:4px;word-break:break-all;}
   #trailBox a{color:var(--accent);text-decoration:none;}
   .unsup{background:rgba(240,180,41,.25);border-bottom:1px dotted var(--warn);border-radius:3px;cursor:help;}
+  .cite{color:var(--accent);text-decoration:none;font-size:.8em;vertical-align:super;cursor:pointer;}
+  .cite:hover{text-decoration:underline;}
+  .trail-flash{background:var(--accent-dim);border-radius:6px;}
   .note{color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;}
   .src-toggle{
     margin-top:10px;background:transparent;border:1px solid var(--panel-border);
@@ -564,6 +567,7 @@ function renderTrail(){
   currentNotes.forEach(function(n, i){
     const item = document.createElement("div");
     item.className = "trail-item";
+    item.id = "trail-" + (i + 1);
     const q = document.createElement("div");
     q.className = "trail-q";
     q.textContent = (i + 1) + ". " + (n.question || "");
@@ -591,6 +595,47 @@ function renderTrail(){
   box.style.display = "block";
 }
 
+function linkCitations(){
+  const count = (currentNotes || []).length;
+  if(!count) return;
+  const walker = document.createTreeWalker(document.getElementById("reportBody"), NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while(walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(function(node){
+    const text = node.nodeValue;
+    const re = /\[(\d+)\]/g;
+    let m, last = 0, frag = null;
+    while((m = re.exec(text)) !== null){
+      const num = parseInt(m[1], 10);
+      if(num < 1 || num > count) continue;
+      if(!frag) frag = document.createDocumentFragment();
+      frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const a = document.createElement("a");
+      a.className = "cite";
+      a.href = "#trail-" + num;
+      a.textContent = "[" + num + "]";
+      a.title = (currentNotes[num - 1].question || "").slice(0, 140);
+      a.onclick = function(e){
+        e.preventDefault();
+        const box = document.getElementById("trailBox");
+        box.open = true;
+        const el = document.getElementById("trail-" + a.textContent.replace(/\D/g, ""));
+        if(el){
+          el.scrollIntoView({behavior:"smooth", block:"center"});
+          el.classList.add("trail-flash");
+          setTimeout(function(){ el.classList.remove("trail-flash"); }, 1600);
+        }
+      };
+      frag.appendChild(a);
+      last = m.index + m[0].length;
+    }
+    if(frag){
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    }
+  });
+}
+
 function highlightUnsupported(){
   const miss = (currentGrounding && currentGrounding.missing) || [];
   if(!miss.length) return;
@@ -599,6 +644,7 @@ function highlightUnsupported(){
   const nodes = [];
   while(walker.nextNode()) nodes.push(walker.currentNode);
   nodes.forEach(function(node){
+    if(node.parentNode && node.parentNode.closest && node.parentNode.closest(".cite")) return;
     const text = node.nodeValue;
     const re = /\d+(?:[.,]\d+)*/g;
     let m, last = 0, frag = null;
@@ -659,6 +705,7 @@ function showReport(topic, report, sources){
   document.getElementById("reportBox").classList.add("visible");
   buildJump();
   renderTrail();
+  linkCitations();
   document.getElementById("emptyHint").style.display = "none";
 }
 

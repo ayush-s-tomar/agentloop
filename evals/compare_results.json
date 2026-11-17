@@ -5,62 +5,26 @@
     "agent_mean": {
       "relevance": 5,
       "completeness": 4,
-      "support": 2
+      "support": 2.33
     },
     "baseline_mean": {
       "relevance": 5,
       "completeness": 4,
       "support": 2.33
     },
-    "agent_wins": 1,
-    "ties": 1,
-    "baseline_wins": 1,
-    "median_seconds_agent": 53.9,
-    "median_seconds_baseline": 8.2
+    "agent_wins": 0,
+    "ties": 3,
+    "baseline_wins": 0,
+    "median_seconds_agent": 43.7,
+    "median_seconds_baseline": 9.5
   },
   "runs": [
     {
       "topic": "How the EU AI Act affects startups",
-      "agent_seconds": 53.9,
+      "agent_seconds": 33.2,
       "agent_search_failures": 0,
-      "agent_missing_figures": 2,
-      "base_seconds": 8.2,
-      "base_missing_figures": 2,
-      "agent_scores": {
-        "relevance": 5,
-        "completeness": 5,
-        "support": 2
-      },
-      "base_scores": {
-        "relevance": 5,
-        "completeness": 4,
-        "support": 2
-      }
-    },
-    {
-      "topic": "Current state of solid-state EV batteries",
-      "agent_seconds": 42.3,
-      "agent_search_failures": 0,
-      "agent_missing_figures": 2,
-      "base_seconds": 22.5,
-      "base_missing_figures": 1,
-      "agent_scores": {
-        "relevance": 5,
-        "completeness": 3,
-        "support": 2
-      },
-      "base_scores": {
-        "relevance": 5,
-        "completeness": 4,
-        "support": 3
-      }
-    },
-    {
-      "topic": "Impact of AI agents on software engineering jobs",
-      "agent_seconds": 60.0,
-      "agent_search_failures": 0,
-      "agent_missing_figures": 0,
-      "base_seconds": 7.2,
+      "agent_missing_figures": 1,
+      "base_seconds": 6.1,
       "base_missing_figures": 0,
       "agent_scores": {
         "relevance": 5,
@@ -71,6 +35,42 @@
         "relevance": 5,
         "completeness": 4,
         "support": 2
+      }
+    },
+    {
+      "topic": "Current state of solid-state EV batteries",
+      "agent_seconds": 43.7,
+      "agent_search_failures": 0,
+      "agent_missing_figures": 1,
+      "base_seconds": 16.1,
+      "base_missing_figures": 0,
+      "agent_scores": {
+        "relevance": 5,
+        "completeness": 4,
+        "support": 2
+      },
+      "base_scores": {
+        "relevance": 5,
+        "completeness": 4,
+        "support": 2
+      }
+    },
+    {
+      "topic": "Impact of AI agents on software engineering jobs",
+      "agent_seconds": 49.0,
+      "agent_search_failures": 0,
+      "agent_missing_figures": 0,
+      "base_seconds": 9.5,
+      "base_missing_figures": 0,
+      "agent_scores": {
+        "relevance": 5,
+        "completeness": 4,
+        "support": 3
+      },
+      "base_scores": {
+        "relevance": 5,
+        "completeness": 4,
+        "support": 3
       }
     }
   ]
