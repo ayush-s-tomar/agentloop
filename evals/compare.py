@@ -8,6 +8,7 @@ import json
 import statistics
 import sys
 import time
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -103,7 +104,7 @@ def agent_report(topic):
 
     store.init_db()
     final, failed = {}, 0
-    for node, snap in run(topic):
+    for node, snap in run(topic, owner="cmp-" + uuid.uuid4().hex):
         if node == "research":
             tr = snap.get("trace") or []
             if tr and str(tr[-1].get("message", "")).startswith("Researching (failed)"):
