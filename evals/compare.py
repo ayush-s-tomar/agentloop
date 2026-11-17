@@ -5,6 +5,7 @@ Baseline = one Tavily search + one LLM call. Spends API quota:
 """
 import argparse
 import json
+import os
 import statistics
 import sys
 import time
@@ -69,6 +70,10 @@ def summarise(rows):
         "judged": len(ok),
         "agent_mean": {d: mean("agent_scores", d) for d in DIMS},
         "baseline_mean": {d: mean("base_scores", d) for d in DIMS},
+        "agent_total_mean": round(statistics.mean(total(r["agent_scores"]) for r in ok), 2),
+        "baseline_total_mean": round(statistics.mean(total(r["base_scores"]) for r in ok), 2),
+        "agent_total_stdev": round(statistics.pstdev(total(r["agent_scores"]) for r in ok), 2),
+        "baseline_total_stdev": round(statistics.pstdev(total(r["base_scores"]) for r in ok), 2),
         "agent_wins": wins,
         "ties": ties,
         "baseline_wins": len(ok) - wins - ties,
@@ -118,12 +123,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=3)
     ap.add_argument("--pause", type=float, default=15.0)
+    ap.add_argument("--repeats", type=int, default=1, help="runs per topic")
+    ap.add_argument("--cache", action="store_true", help="cache search results on disk (timings then invalid)")
     args = ap.parse_args()
+    if args.cache:
+        os.environ["SEARCH_CACHE_DIR"] = str(Path(__file__).resolve().parent / ".search_cache")
 
     rows = []
-    for i, topic in enumerate(TOPICS[: max(1, min(args.n, len(TOPICS)))], 1):
-        print("[%d] %s" % (i, topic), flush=True)
-        row = {"topic": topic}
+    jobs = [(t, r) for t in TOPICS[: max(1, min(args.n, len(TOPICS)))] for r in range(1, max(1, args.repeats) + 1)]
+    for i, (topic, rep) in enumerate(jobs, 1):
+        print("[%d] %s (run %d)" % (i, topic, rep), flush=True)
+        row = {"topic": topic, "repeat": rep}
         try:
             t0 = time.time()
             a_report, a_ground, failed = agent_report(topic)

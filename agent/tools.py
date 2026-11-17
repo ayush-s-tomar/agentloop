@@ -48,6 +48,35 @@ def _search_uncached(query: str, max_results: int = 5) -> List[Dict[str, str]]:
 
 
 import time as _time
+import json as _json
+import hashlib as _hashlib
+from pathlib import Path as _Path
+
+
+def _disk_path(query, max_results):
+    """Cache file for this query, or None when SEARCH_CACHE_DIR is unset (the default)."""
+    d = os.environ.get("SEARCH_CACHE_DIR")
+    if not d:
+        return None
+    key = "%s|%s|%s" % (" ".join(query.lower().split()), max_results, os.environ.get("TAVILY_DEPTH", "advanced"))
+    return _Path(d) / (_hashlib.sha1(key.encode("utf-8")).hexdigest() + ".json")
+
+
+def _search_with_disk_cache(query, max_results):
+    path = _disk_path(query, max_results)
+    if path is not None and path.exists():
+        try:
+            return _json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass  # unreadable cache file: fall through to a live search
+    results = _search_uncached(query, max_results)
+    if path is not None and results:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(_json.dumps(results), encoding="utf-8")
+        except Exception:
+            pass
+    return results
 
 _CACHE: dict = {}
 _CACHE_TTL_S = 3600
@@ -61,7 +90,7 @@ def web_search(query: str, max_results: int = 5) -> List[Dict[str, str]]:
     now = _time.time()
     if hit and now - hit[0] < _CACHE_TTL_S:
         return hit[1]
-    results = _search_uncached(query, max_results)
+    results = _search_with_disk_cache(query, max_results)
     if len(_CACHE) >= _CACHE_MAX:
         _CACHE.pop(next(iter(_CACHE)))
     _CACHE[key] = (now, results)
