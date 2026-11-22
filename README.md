@@ -166,6 +166,10 @@ This repo includes a `render.yaml` Blueprint (Render dashboard > New > Blueprint
 
 ---
 
+## Quick mode
+
+The UI has a Deep/Quick selector (API field `mode`, default `deep`). Quick plans at most 2 sub-questions and skips the reflect step, trading depth for speed. Its quality and timing have not been measured yet; use `python evals/compare.py --mode quick` to measure it against the baseline.
+
 ## Telemetry
 
 `GET /api/stats` returns aggregates over the last 200 runs on the current instance: median and p90 seconds, mean questions, web searches and tokens, failed steps, skipped duplicates, model fallbacks, unsupported figures, and an upper bound on Tavily credits. It holds numbers only (no topics or user ids) and resets on restart.

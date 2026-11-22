@@ -109,7 +109,7 @@ def agent_report(topic):
 
     store.init_db()
     final, failed = {}, 0
-    for node, snap in run(topic, owner="cmp-" + uuid.uuid4().hex):
+    for node, snap in run(topic, owner="cmp-" + uuid.uuid4().hex, mode=os.environ.get("AL_MODE", "deep")):
         if node == "research":
             tr = snap.get("trace") or []
             if tr and str(tr[-1].get("message", "")).startswith("Researching (failed)"):
@@ -124,8 +124,10 @@ def main():
     ap.add_argument("--n", type=int, default=3)
     ap.add_argument("--pause", type=float, default=15.0)
     ap.add_argument("--repeats", type=int, default=1, help="runs per topic")
+    ap.add_argument("--mode", choices=("deep", "quick"), default="deep", help="agent mode")
     ap.add_argument("--cache", action="store_true", help="cache search results on disk (timings then invalid)")
     args = ap.parse_args()
+    os.environ["AL_MODE"] = args.mode
     if args.cache:
         os.environ["SEARCH_CACHE_DIR"] = str(Path(__file__).resolve().parent / ".search_cache")
 

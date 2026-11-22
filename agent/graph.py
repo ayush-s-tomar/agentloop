@@ -76,6 +76,8 @@ def recall_node(state: AgentState) -> dict:
 def planner_node(state: AgentState) -> dict:
     llm.reset_usage()
     max_q = int(os.environ.get("MAX_SUBQUESTIONS", "4"))
+    if state.get("mode") == "quick":
+        max_q = min(max_q, 2)
     topic = state["topic"]
 
     prior_notes: List[str] = []
@@ -325,7 +327,7 @@ def build_graph():
 graph = build_graph()
 
 
-def run(topic: str, owner: str = ""):
+def run(topic: str, owner: str = "", mode: str = "deep"):
     """Generator that yields (node_name, snapshot) as each node finishes."""
     set_run_context(agent_name="AgentLoop")
 
@@ -338,7 +340,8 @@ def run(topic: str, owner: str = ""):
         "completed_questions":    [],
         "notes":                  [],
         "reflect_iterations":     0,
-        "max_reflect_iterations": 2,
+        "max_reflect_iterations": 0 if mode == "quick" else 2,
+        "mode":                   mode,
         "decision":               "",
         "final_report":           "",
         "trace":                  [],

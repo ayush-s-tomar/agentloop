@@ -232,6 +232,7 @@
   .cite{color:var(--accent);text-decoration:none;font-size:.8em;vertical-align:super;cursor:pointer;}
   .cite:hover{text-decoration:underline;}
   .trail-flash{background:var(--accent-dim);border-radius:6px;}
+  #mode{background:var(--panel);color:var(--text-dim);border:1px solid var(--panel-border);border-radius:9px;padding:0 10px;font-family:inherit;font-size:12.5px;}
   .note{color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;}
   .src-toggle{
     margin-top:10px;background:transparent;border:1px solid var(--panel-border);
@@ -294,6 +295,10 @@
 
     <div class="input-row">
       <input id="topic" type="text" maxlength="200" placeholder="e.g. impact of the EU AI Act on startups" />
+      <select id="mode" title="Quick: at most 2 sub-questions, no reflection step">
+        <option value="deep">Deep</option>
+        <option value="quick">Quick</option>
+      </select>
       <button id="runBtn">Run</button>
     </div>
     <div class="counter" id="counter">0/200</div>
@@ -749,7 +754,7 @@ document.getElementById("runBtn").onclick = function(){
   apiFetch("/api/run", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({topic:topic})
+    body: JSON.stringify({topic:topic, mode:document.getElementById("mode").value})
   }).then(function(res){
     const reader = res.body.getReader();
     const decoder = new TextDecoder();

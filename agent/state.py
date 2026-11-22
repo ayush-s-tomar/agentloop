@@ -47,6 +47,7 @@ class AgentState(TypedDict, total=False):
     all_sources: List[str]
     grounding: dict
     trail: list
+    mode: str
     input_tokens: int
     output_tokens: int
     claims: dict

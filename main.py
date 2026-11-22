@@ -80,6 +80,7 @@ app.add_middleware(
 
 class RunRequest(BaseModel):
     topic: str
+    mode: str = "deep"
 
 
 def _sse(event: str, data: dict) -> str:
@@ -90,6 +91,7 @@ def _sse(event: str, data: dict) -> str:
 async def run_research(req: RunRequest, request: Request):
     topic = (req.topic or "").strip()
     owner = _owner(request)
+    mode = "quick" if req.mode == "quick" else "deep"
 
     async def stream():
         if not topic:
@@ -105,7 +107,7 @@ async def run_research(req: RunRequest, request: Request):
             run_t0 = time.time()
             fb0 = _llm.fallback_count()
             acc = telemetry.new_acc()
-            for node_name, snapshot in agent_run(topic, owner):
+            for node_name, snapshot in agent_run(topic, owner, mode):
                 telemetry.observe(acc, node_name, snapshot)
                 payload = {"node": node_name}
                 if node_name == "planner":
