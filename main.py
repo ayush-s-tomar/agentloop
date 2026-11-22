@@ -30,6 +30,8 @@ from pydantic import BaseModel
 
 from agent.graph import run as agent_run
 from memory import store
+from agent import llm as _llm
+from agent import telemetry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(name)s -- %(message)s")
 log = logging.getLogger(__name__)
@@ -100,7 +102,11 @@ async def run_research(req: RunRequest, request: Request):
             yield _sse("error", {"message": "Rate limit reached for this demo. Please try again later."})
             return
         try:
+            run_t0 = time.time()
+            fb0 = _llm.fallback_count()
+            acc = telemetry.new_acc()
             for node_name, snapshot in agent_run(topic, owner):
+                telemetry.observe(acc, node_name, snapshot)
                 payload = {"node": node_name}
                 if node_name == "planner":
                     payload["plan"] = snapshot.get("plan", [])
@@ -117,9 +123,11 @@ async def run_research(req: RunRequest, request: Request):
                     payload["notes"] = snapshot.get("trail", [])
                     payload["claims"] = snapshot.get("claims", {})
                 yield _sse("node", payload)
+            telemetry.record_run(acc, time.time() - run_t0, _llm.fallback_count() - fb0)
             yield _sse("done", {})
         except Exception as exc:
             log.error("Agent run failed: %s", exc, exc_info=True)
+            telemetry.record_error()
             yield _sse("error", {"message": "An error occurred during research. Please try again in a moment."})
 
     return StreamingResponse(stream(), media_type="text/event-stream")
@@ -152,6 +160,12 @@ async def clear_sessions(request: Request):
     if owner:
         store.delete_all_sessions(owner=owner)
     return {"ok": True}
+
+
+@app.get("/api/stats")
+async def stats():
+    """Aggregate run telemetry (numbers only)."""
+    return telemetry.summary()
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

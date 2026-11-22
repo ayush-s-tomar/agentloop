@@ -166,6 +166,10 @@ This repo includes a `render.yaml` Blueprint (Render dashboard > New > Blueprint
 
 ---
 
+## Telemetry
+
+`GET /api/stats` returns aggregates over the last 200 runs on the current instance: median and p90 seconds, mean questions, web searches and tokens, failed steps, skipped duplicates, model fallbacks, unsupported figures, and an upper bound on Tavily credits. It holds numbers only (no topics or user ids) and resets on restart.
+
 ## Abuse and cost controls
 
 The public demo spends real API quota, so `/api/run` rejects topics over 200 characters and allows 5 runs per IP per hour (`RATE_LIMIT_RUNS`). The limiter is in-memory, so it resets on restart and is per instance, and a determined client can evade it by spoofing proxy headers. It is a guard against casual abuse, not a security boundary. CORS is open (`*`) because the API has no cookies or auth. Sessions are scoped per browser but not authenticated (see Known limitations).
