@@ -35,6 +35,7 @@ from agent import llm, tools
 from memory import store
 from tracer.trace import traced, set_run_context
 from agent.grounding import check_report, check_claims
+from agent.sources import adjusted_score
 
 log = logging.getLogger(__name__)
 
@@ -135,8 +136,8 @@ def _relevant(results, min_score=0.5, keep=3, floor=2):
     hits = [r for r in results if r.get("url")]
     if not any("score" in r for r in hits):
         return hits[:keep]
-    hits.sort(key=lambda r: r.get("score") or 0, reverse=True)
-    strong = [r for r in hits if (r.get("score") or 0) >= min_score]
+    hits.sort(key=lambda r: adjusted_score(r) or 0, reverse=True)
+    strong = [r for r in hits if (adjusted_score(r) or 0) >= min_score]
     return (strong if len(strong) >= floor else hits[:floor])[:keep]
 
 

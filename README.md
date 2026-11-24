@@ -166,6 +166,10 @@ This repo includes a `render.yaml` Blueprint (Render dashboard > New > Blueprint
 
 ---
 
+## Source ranking
+
+Before the top 3 hits per question are kept, `agent/sources.py` adjusts each hit's Tavily score by a domain tier: primary (government, education, standards bodies, major journals) +0.15, reputable news and reference +0.05, unlisted domains 0, and low-quality user-content sites (Medium, Substack, Quora, Reddit and similar) -0.2. The tier lists are my own judgement, not a measured credibility score, and a primary domain can still host a weak page. Unlisted domains are treated as neutral.
+
 ## Quick mode
 
 The UI has a Deep/Quick selector (API field `mode`, default `deep`). Quick plans at most 2 sub-questions and skips the reflect step, trading depth for speed. Its quality and timing have not been measured yet; use `python evals/compare.py --mode quick` to measure it against the baseline.
