@@ -23,12 +23,13 @@ import time
 from collections import defaultdict, deque
 
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent.graph import run as agent_run
+from memory import feedback
 from memory import store
 from agent import llm as _llm
 from agent import telemetry
@@ -162,6 +163,34 @@ async def clear_sessions(request: Request):
     if owner:
         store.delete_all_sessions(owner=owner)
     return {"ok": True}
+
+
+class FeedbackRequest(BaseModel):
+    session_id: str
+    rating: int
+
+
+@app.post("/api/feedback")
+async def post_feedback(req: FeedbackRequest, request: Request):
+    owner = _owner(request)
+    if not owner or req.rating not in (1, -1):
+        return JSONResponse({"error": "invalid request"}, status_code=400)
+    if not store.get_session(req.session_id, owner=owner):
+        return JSONResponse({"error": "not found"}, status_code=404)
+    feedback.save(req.session_id, owner, req.rating)
+    return {"ok": True}
+
+
+@app.get("/api/feedback_summary")
+async def feedback_summary():
+    """Counts only: no sessions, topics or owners."""
+    return feedback.summary()
+
+
+@app.get("/api/feedback/{session_id}")
+async def get_feedback(session_id: str, request: Request):
+    owner = _owner(request)
+    return {"rating": feedback.get(session_id, owner) if owner else 0}
 
 
 @app.get("/api/stats")

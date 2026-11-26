@@ -174,6 +174,10 @@ Before the top 3 hits per question are kept, `agent/sources.py` adjusts each hit
 
 The UI has a Deep/Quick selector (API field `mode`, default `deep`). Quick plans at most 2 sub-questions and skips the reflect step, trading depth for speed. Its quality and timing have not been measured yet; use `python evals/compare.py --mode quick` to measure it against the baseline.
 
+## Feedback
+
+Each report has a thumbs up/down (one vote per saved session, scoped to the browser ID). `GET /api/feedback_summary` returns counts only. Votes live in SQLite and reset when the instance restarts, so they are a rough signal, not an evaluation.
+
 ## Telemetry
 
 `GET /api/stats` returns aggregates over the last 200 runs on the current instance: median and p90 seconds, mean questions, web searches and tokens, failed steps, skipped duplicates, model fallbacks, unsupported figures, and an upper bound on Tavily credits. It holds numbers only (no topics or user ids) and resets on restart.

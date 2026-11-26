@@ -233,6 +233,8 @@
   .cite:hover{text-decoration:underline;}
   .trail-flash{background:var(--accent-dim);border-radius:6px;}
   #mode{background:var(--panel);color:var(--text-dim);border:1px solid var(--panel-border);border-radius:9px;padding:0 10px;font-family:inherit;font-size:12.5px;}
+  .fb-on{background:var(--accent-dim);}
+  #fbMsg{font-size:11.5px;color:var(--text-dim);margin-left:10px;}
   .note{color:var(--text-dim);font-size:11.5px;margin:0 0 32px 52px;}
   .src-toggle{
     margin-top:10px;background:transparent;border:1px solid var(--panel-border);
@@ -336,6 +338,9 @@
       <button class="download-btn" id="copyBtn" style="margin-left:10px;">Copy report</button>
       <button class="download-btn" id="printBtn" style="margin-left:10px;">Print / save PDF</button>
       <button class="download-btn" id="linkBtn" style="margin-left:10px;">Copy link</button>
+      <button class="download-btn" id="fbUp" style="margin-left:10px;" title="This report was useful">&#128077;</button>
+      <button class="download-btn" id="fbDown" title="This report was not useful">&#128078;</button>
+      <span id="fbMsg"></span>
     </div>
   </main>
 </div>
@@ -506,7 +511,7 @@ function loadSessions(){
       return;
     }
     clearBtn.style.display = "block";
-    if(justRan){ currentSessionId = sessions[0].id; justRan = false; }
+    if(justRan){ currentSessionId = sessions[0].id; justRan = false; refreshFeedback(); }
     list.innerHTML = "";
     sessions.forEach(function(s){
       const btn = document.createElement("button");
@@ -598,6 +603,33 @@ function renderTrail(){
     list.appendChild(item);
   });
   box.style.display = "block";
+}
+
+function setFb(r){
+  document.getElementById("fbUp").classList.toggle("fb-on", r === 1);
+  document.getElementById("fbDown").classList.toggle("fb-on", r === -1);
+  document.getElementById("fbMsg").textContent = r === 0 ? "" : "Thanks for the feedback";
+}
+
+function refreshFeedback(){
+  setFb(0);
+  if(!currentSessionId) return;
+  const sid = currentSessionId;
+  apiFetch("/api/feedback/" + sid).then(function(r){ return r.json(); }).then(function(d){
+    if(sid === currentSessionId) setFb(d.rating || 0);
+  }).catch(function(){});
+}
+
+function sendFeedback(r){
+  const msg = document.getElementById("fbMsg");
+  if(!currentSessionId){ msg.textContent = "Report is still being saved - try again in a moment"; return; }
+  apiFetch("/api/feedback", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({session_id: currentSessionId, rating: r})
+  }).then(function(res){
+    if(res.ok) setFb(r); else msg.textContent = "Could not save feedback";
+  }).catch(function(){ msg.textContent = "Could not save feedback"; });
 }
 
 function linkCitations(){
@@ -711,6 +743,7 @@ function showReport(topic, report, sources){
   buildJump();
   renderTrail();
   linkCitations();
+  refreshFeedback();
   document.getElementById("emptyHint").style.display = "none";
 }
 
@@ -836,6 +869,8 @@ document.getElementById("topic").addEventListener("keydown", function(e){
 });
 
 document.getElementById("printBtn").onclick = function(){ window.print(); };
+document.getElementById("fbUp").onclick = function(){ sendFeedback(1); };
+document.getElementById("fbDown").onclick = function(){ sendFeedback(-1); };
 
 document.getElementById("linkBtn").onclick = function(){
   const btn = document.getElementById("linkBtn");
